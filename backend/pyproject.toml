@@ -1,0 +1,13 @@
+[project]
+name = "chat-service-12days"
+version = "0.1.0"
+description = "en-core first project"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.139.0",
+    "pydantic[email]>=2.0",
+    "python-dotenv>=1.2.2",
+    "supabase>=2.31.0",
+    "uvicorn[standard]>=0.50.2",
+]
