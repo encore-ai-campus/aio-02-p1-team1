@@ -3,11 +3,20 @@ import os
 import httpx
 
 DEFAULT_FASTAPI_BASE_URL = "http://127.0.0.1:8000"
+API_PREFIX = "/api/v1"
 REQUEST_TIMEOUT_SECONDS = 10.0
 
 
 def get_fastapi_base_url():
     return os.getenv("FASTAPI_BASE_URL", DEFAULT_FASTAPI_BASE_URL)
+
+
+def build_api_path(path):
+    if not path.startswith("/"):
+        path = f"/{path}"
+    if path.startswith(API_PREFIX):
+        return path
+    return f"{API_PREFIX}{path}"
 
 
 def _build_error_body(status_code, payload):
@@ -34,12 +43,15 @@ def fetch_json(
     params=None,
     json_body=None,
     access_token=None,
+    idempotency_key=None,
 ):
     headers = {"Accept": "application/json"}
     if access_token:
         headers["Authorization"] = f"Bearer {access_token}"
+    if idempotency_key:
+        headers["X-Idempotency-Key"] = idempotency_key
 
-    url = f"{get_fastapi_base_url()}{path}"
+    url = f"{get_fastapi_base_url()}{build_api_path(path)}"
 
     try:
         response = httpx.request(
@@ -61,6 +73,14 @@ def fetch_json(
                 "message": "FastAPI 서버에 연결하지 못했습니다.",
                 "request_id": None,
             },
+        }
+
+    if response.status_code == 204:
+        return {
+            "ok": True,
+            "status_code": 204,
+            "data": None,
+            "error": None,
         }
 
     payload = None
@@ -97,3 +117,47 @@ def get_json(path, params=None, access_token=None):
         params=params,
         access_token=access_token,
     )
+
+
+def post_json(path, json_body=None, access_token=None, idempotency_key=None):
+    return fetch_json(
+        "POST",
+        path,
+        json_body=json_body,
+        access_token=access_token,
+        idempotency_key=idempotency_key,
+    )
+
+
+def patch_json(path, json_body=None, access_token=None):
+    return fetch_json(
+        "PATCH",
+        path,
+        json_body=json_body,
+        access_token=access_token,
+    )
+
+
+def delete_json(path, access_token=None):
+    return fetch_json(
+        "DELETE",
+        path,
+        access_token=access_token,
+    )
+
+
+def list_resource_items(payload):
+    if isinstance(payload, list):
+        return payload, len(payload)
+    if not isinstance(payload, dict):
+        return [], 0
+
+    items = (
+        payload.get("items")
+        or payload.get("restaurants")
+        or payload.get("results")
+        or payload.get("logs")
+        or []
+    )
+    total_count = payload.get("total_count", payload.get("total", len(items)))
+    return items, total_count

@@ -1,9 +1,10 @@
 import streamlit as st
 
-from src.common.components import render_empty_state
 from src.common.layout import apply_page_layout
 from src.common.navbar import render_navbar
 from src.views.admin_analytics import render_admin_analytics
+from src.views.admin_feedback import render_admin_feedback
+from src.views.admin_restaurants import render_admin_restaurants
 
 ADMIN_MENU_ANALYTICS = "검색정보분석"
 ADMIN_MENU_RESTAURANTS = "식당정보"
@@ -61,12 +62,6 @@ def render_admin():
         if current_menu == ADMIN_MENU_ANALYTICS:
             render_admin_analytics()
         elif current_menu == ADMIN_MENU_RESTAURANTS:
-            render_empty_state(
-                "식당정보 화면은 이 담당 범위에 포함하지 않습니다.",
-                next_action="검색정보분석 메뉴에서 로그 대시보드를 확인하세요.",
-            )
+            render_admin_restaurants()
         else:
-            render_empty_state(
-                "사용자피드백 화면은 이 담당 범위에 포함하지 않습니다.",
-                next_action="검색정보분석 메뉴에서 로그 대시보드를 확인하세요.",
-            )
+            render_admin_feedback()
