@@ -10,11 +10,13 @@ from src.common.components import (
 from src.views.admin_analytics import (
     ADMIN_ANALYTICS_KEYS,
     get_error_next_action,
+    handle_refresh,
     initialize_admin_analytics_state,
     list_api_log_items,
     list_metric_points,
     refresh_admin_analytics_if_needed,
     render_applied_query_caption,
+    render_evaluation_panel,
     render_filter_form,
     render_kpi_row,
     render_log_detail,
@@ -23,25 +25,38 @@ from src.views.admin_analytics import (
     render_summary_panel,
 )
 
-LOG_SECTION_FILTER = "조회조건"
-LOG_SECTION_STATS = "통계분석"
-LOG_SECTION_SUMMARY = "LLM 로그요약"
+LOG_SECTION_STATS = "통계분석 및 요약"
+LOG_SECTION_EVAL = "품질평가"
 LOG_SECTION_LOGS = "최근요청로그"
 LOG_SECTION_KEY = "admin_logs_section"
-LOG_SECTION_NAV_KEY = "admin_logs_section_nav_v4"
+LOG_SECTION_NAV_KEY = "admin_logs_section_nav_v8"
+LOGS_MENU_ACTIVE_KEY = "admin_logs_menu_active"
 LOG_SECTION_ALIASES = {
     "운영 KPI": LOG_SECTION_STATS,
+    "통계분석": LOG_SECTION_STATS,
+    "LLM 로그요약": LOG_SECTION_STATS,
+    "조회조건": LOG_SECTION_STATS,
 }
 LOG_SECTIONS = (
-    LOG_SECTION_FILTER,
     LOG_SECTION_STATS,
-    LOG_SECTION_SUMMARY,
+    LOG_SECTION_EVAL,
     LOG_SECTION_LOGS,
 )
 
 
 def initialize_log_section():
-    st.session_state.setdefault(LOG_SECTION_KEY, LOG_SECTION_FILTER)
+    if not st.session_state.get("admin_logs_drop_filter_tab"):
+        st.session_state["admin_logs_drop_filter_tab"] = True
+        st.session_state[LOG_SECTION_KEY] = LOG_SECTION_STATS
+    st.session_state.setdefault(LOG_SECTION_KEY, LOG_SECTION_STATS)
+
+
+def refresh_on_logs_entry():
+    was_on_logs = st.session_state.get(LOGS_MENU_ACTIVE_KEY)
+    st.session_state[LOGS_MENU_ACTIVE_KEY] = True
+    if was_on_logs:
+        return
+    handle_refresh()
 
 
 def get_current_log_section():
@@ -49,7 +64,7 @@ def get_current_log_section():
     if current_section in LOG_SECTION_ALIASES:
         current_section = LOG_SECTION_ALIASES[current_section]
     if current_section not in LOG_SECTIONS:
-        current_section = LOG_SECTION_FILTER
+        current_section = LOG_SECTION_STATS
     st.session_state[LOG_SECTION_KEY] = current_section
     return current_section
 
@@ -101,10 +116,13 @@ def render_stats_error(stats_error):
 
 
 def render_stats_section(result):
-    render_section_title(
-        "통계 분석",
-        "사용량, 응답시간, 에러율을 같은 기간·필터로 요약하고 차트로 봅니다.",
-    )
+    cleaning_run_id = (
+        st.session_state.get(ADMIN_ANALYTICS_KEYS["cleaning_run_id"]) or ""
+    ).strip()
+    caption = "사용량, 응답시간, 에러율을 같은 기간·필터로 요약하고 차트로 봅니다."
+    if cleaning_run_id:
+        caption = f"정제 실행 기준 집계 (cleaning_run_id={cleaning_run_id}). {caption}"
+    render_section_title("통계분석 및 요약", caption)
     stats_error, usage_points, latency_points, error_points, log_items, _log_result = (
         list_stats_context(result)
     )
@@ -154,21 +172,21 @@ def render_recent_logs_section(result):
 def render_admin_logs():
     initialize_admin_analytics_state()
     initialize_log_section()
+    refresh_on_logs_entry()
     current_section = get_current_log_section()
     render_log_section_nav(current_section)
     current_section = get_current_log_section()
+    st.caption(
+        "통계분석 및 요약에서 기간·필터, 사용량·지연·에러, LLM 요약을 한 화면에서 확인합니다. "
+        "정제 실행 후 요약 실행, 그다음 품질평가입니다."
+    )
 
     query = st.session_state[ADMIN_ANALYTICS_KEYS["applied_query"]]
-    if current_section == LOG_SECTION_FILTER:
+    if current_section == LOG_SECTION_STATS:
         render_filter_form(query)
-
     refresh_admin_analytics_if_needed()
+    query = st.session_state[ADMIN_ANALYTICS_KEYS["applied_query"]]
     result = st.session_state.get(ADMIN_ANALYTICS_KEYS["result"])
-
-    if current_section == LOG_SECTION_FILTER:
-        if result is not None:
-            render_applied_query_caption(query, result.get("fetched_at"))
-        return
 
     if result is None:
         render_loading_state("처음 조회를 준비하고 있습니다.")
@@ -177,7 +195,8 @@ def render_admin_logs():
     render_applied_query_caption(query, result.get("fetched_at"))
     if current_section == LOG_SECTION_STATS:
         render_stats_section(result)
-    elif current_section == LOG_SECTION_SUMMARY:
         render_summary_panel(query)
+    elif current_section == LOG_SECTION_EVAL:
+        render_evaluation_panel()
     elif current_section == LOG_SECTION_LOGS:
         render_recent_logs_section(result)

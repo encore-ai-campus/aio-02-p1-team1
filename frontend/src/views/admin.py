@@ -12,7 +12,7 @@ from src.views.admin_common import (
     render_admin_sidebar,
 )
 from src.views.admin_feedback import render_admin_feedback
-from src.views.admin_logs import render_admin_logs
+from src.views.admin_logs import LOGS_MENU_ACTIVE_KEY, render_admin_logs
 from src.views.admin_restaurants import render_admin_restaurants
 
 
@@ -22,6 +22,9 @@ def render_admin():
     st.markdown('<div class="playeat-admin-root"></div>', unsafe_allow_html=True)
     render_admin_sidebar(current_menu)
     render_navbar(current_menu, profile_type="0")
+
+    if current_menu != ADMIN_MENU_LOGS:
+        st.session_state[LOGS_MENU_ACTIVE_KEY] = False
 
     if current_menu == ADMIN_MENU_RESTAURANTS:
         render_admin_restaurants()

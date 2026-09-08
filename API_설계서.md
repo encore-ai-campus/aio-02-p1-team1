@@ -113,6 +113,7 @@
 | `POST` | `/recommendations/{recommendation_id}/feedback` | 사용자 | `FeedbackCreateRequest` | `FeedbackResponse` | 추천 평가 생성 |
 | `PATCH` | `/recommendations/{recommendation_id}/feedback` | 사용자 | `FeedbackUpdateRequest` | `FeedbackResponse` | 기존 평가 수정 |
 | `DELETE` | `/recommendations/{recommendation_id}/feedback` | 사용자 | 없음 | 204 | 평가 삭제 |
+| `GET` | `/admin/feedback` | 관리자 | 목록 query | `AdminFeedbackListResponse` | 관리자 추천 평가 목록·값별 건수 |
 
 ### 4.5 식당·태그
 
@@ -148,7 +149,13 @@
 | `POST` | `/admin/improvement-experiments` | `ExperimentCreateRequest` | `ExperimentResponse` | 개선 실험 생성 |
 | `GET` | `/admin/improvement-experiments/{experiment_id}` | 없음 | `ExperimentResponse` | 전후 결과 조회 |
 
-관리자 로그·통계·요약 API는 모두 관리자 인증이 필요하다.
+관리자 로그·통계·요약 API는 모두 관리자 인증이 필요하다. 아래 제품 검색 통계는 API 사용량·응답시간·에러율과 합산하지 않는다.
+
+### 4.7 관리자 제품 검색 통계
+
+| Method | URL | 인증 | 요청 모델 | 응답 모델 | 설명 |
+| --- | --- | --- | --- | --- | --- |
+| `GET` | `/admin/search-stats` | 관리자 | 없음 | `SearchStatsResponse` | `dashboard_search_stats`의 음식·가격대·상황 태그 비율 |
 
 ## 5. Pydantic 공통 모델
 
@@ -325,6 +332,30 @@ class FeedbackResponse(BaseModel):
     updated_at: datetime | None = None
 
 
+class AdminFeedbackItem(BaseModel):
+    feedback_id: UUID
+    profile_id: UUID
+    conversation_id: UUID
+    restaurant_id: UUID
+    restaurant_name: str | None = None
+    category_name: str | None = None
+    feedback_value: Literal["1", "2", "3"]
+    matched_tags: list[str] = Field(default_factory=list)
+    created_at: datetime
+    updated_at: datetime | None = None
+
+
+class AdminFeedbackCounts(BaseModel):
+    feedback_1: int = Field(ge=0)
+    feedback_2: int = Field(ge=0)
+    feedback_3: int = Field(ge=0)
+
+
+class AdminFeedbackListResponse(BaseModel):
+    items: list[AdminFeedbackItem]
+    counts: AdminFeedbackCounts
+
+
 class AlternativeRecommendationResponse(BaseModel):
     previous_recommendation_id: UUID
     recommendation: RecommendationResponse
@@ -393,6 +424,17 @@ class ApiStatisticsResponse(BaseModel):
     period_end: datetime
     cleaning_run_id: UUID
     points: list[MetricPoint]
+
+
+class SearchStatPoint(BaseModel):
+    label: str
+    value: int = Field(ge=0)
+
+
+class SearchStatsResponse(BaseModel):
+    food: list[SearchStatPoint]
+    price: list[SearchStatPoint]
+    feature: list[SearchStatPoint]
 ```
 
 기간 요청 모델은 `period_start < period_end`를 검증한다. 성공한 로그 요약은 근거가 1개 이상이어야 하며, 데이터 부족 상태는 성공 요약과 구분한다.
