@@ -1,6 +1,9 @@
 from pathlib import Path
 
+#from backend.app.schemas import user
 import streamlit as st
+from src.views.profile_edit import render_profile_edit
+
 # from app.db import supabase
 
 # ----------------------------------------
@@ -38,6 +41,15 @@ def render_mypage():
         "user_id": "EXAM_ID",
         "email": "example@email.com",
     }
+    # ----------------------------------------
+    # 처음 마이페이지에 들어왔을 때는 기본 화면(main)을 보여준다.
+    # 이미 mypage_view 값이 있으면 기존 값을 유지한다.
+    # ----------------------------------------
+    st.session_state.setdefault("mypage_view", "main")
+
+    if st.session_state["mypage_view"] == "profile":
+        render_profile_edit(user)
+        return
 
     # 최근 좋아요를 누른 식당 3개
     recent_restaurants = [
