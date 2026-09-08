@@ -1,6 +1,11 @@
 from pathlib import Path
 
+#from backend.app.schemas import user
 import streamlit as st
+
+from src.common.api_client import get_json
+from src.views.profile_edit import render_profile_edit
+
 # from app.db import supabase
 
 # ----------------------------------------
@@ -27,17 +32,67 @@ def load_css(css_file: str) -> None:
 def render_mypage():
     """마이페이지 화면을 보여준다."""
 
-
+    # 마이페이지 CSS 적용하기
     load_css(Path(__file__).parent.parent / "styles" / "mypage.css")
+
     # ----------------------------------------
-    # 임시 사용자 데이터
-    # 나중에 DB/API 데이터로 변경한다.
+    # 로그인한 사용자 정보 가져오기
     # ----------------------------------------
+    access_token = st.session_state.get("access_token")
+
+    # 로그인 정보가 없으면 마이페이지를 보여주지 않는다.
+    if not access_token:
+        st.error("로그인이 필요합니다.")
+        return
+
+    # 백엔드에서 현재 로그인한 사용자의 정보를 가져온다.
+    try:
+        user = get_json(
+            "/users/me",
+            access_token=access_token,
+        )
+    except Exception as error:
+        st.error(f"사용자 정보를 불러오지 못했습니다: {error}")
+        return
+
+
+    # ----------------------------------------
+    # 최근 좋아요 식당 가져오기
+    # ----------------------------------------
+    try:
+        likes_data = get_json(
+            "/users/me/likes",
+            access_token=access_token,
+        )
+
+        recent_restaurants = likes_data.get("restaurants", [])
+
+    except Exception as error:
+        st.error(f"좋아요 식당 정보를 불러오지 못했습니다: {error}")
+        recent_restaurants = []
+
+    # ----------------------------------------
+    # 자주 사용하는 태그 가져오기
+    # ----------------------------------------
+    try:
+        tags_data = get_json(
+            "/users/me/tags",
+            access_token=access_token,
+        )
     user = {
         "nickname": "맛집러버",
         "user_id": "EXAM_ID",
         "email": "example@email.com",
     }
+    # ----------------------------------------
+    # 처음 마이페이지에 들어왔을 때는 기본 화면(main)을 보여준다.
+    # 이미 mypage_view 값이 있으면 기존 값을 유지한다.
+    # ----------------------------------------
+    st.session_state.setdefault("mypage_view", "main")
+
+    if st.session_state["mypage_view"] == "profile":
+        render_profile_edit(user)
+        return
 
     # 최근 좋아요를 누른 식당 3개
     recent_restaurants = [
@@ -207,7 +262,30 @@ def render_mypage():
 #         for category, count in category_counts.items()
 #     }
 
+        # 화면에 표시할 수 있도록 태그 앞에 # 붙이기
+        favorite_tags = [
+            f"#{tag}"
+            for tag in tags_data.get("tags", [])
+        ]
 
+    except Exception as error:
+        st.error(f"태그 정보를 불러오지 못했습니다: {error}")
+        favorite_tags = []
+
+    # ----------------------------------------
+    # 선호 음식 카테고리 비율 가져오기
+    # ----------------------------------------
+    try:
+        categories_data = get_json(
+            "/users/me/categories",
+            access_token=access_token,
+        )
+
+        favorite_categories = categories_data.get("categories", {})
+
+    except Exception as error:
+        st.error(f"카테고리 정보를 불러오지 못했습니다: {error}")
+        favorite_categories = {}
 
     # ----------------------------------------
     # 상단 인사
@@ -286,12 +364,9 @@ def render_mypage():
                 f'<span class="restaurant-name">'
                 f'{restaurant["name"]}'
                 f'</span>'
-                f'<span class="restaurant-date">'
-                f'{restaurant["date"]}'
-                f'</span>'
                 '</div>'
                 f'<div class="restaurant-location">'
-                f'📍 {restaurant["location"]}'
+                f'📍 {restaurant.get("address") or "주소 정보 없음"}'
                 f'</div>'
                 '</div>'
             )

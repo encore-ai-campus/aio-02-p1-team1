@@ -1,5 +1,8 @@
 from fastapi import FastAPI
+
 from fastapi.middleware.cors import CORSMiddleware
+from app.routers import auth, users
+
 
 from app.middleware.request_log import ApiRequestLogMiddleware
 from app.routers.admin_logs import router as admin_logs_router
@@ -26,7 +29,20 @@ app.include_router(feedback_router, prefix="/api/v1")
 app.include_router(search_stats_router, prefix="/api/v1")
 app.include_router(admin_logs_router, prefix="/api/v1")
 
+app.include_router(users.auth_router, prefix="/api/v1")
+app.include_router(users.router, prefix="/api/v1")
+
 
 @app.get("/health")
 def health():
     return {"status": "ok"}
+
+app.include_router(
+    auth.router,
+    prefix="/api/v1",
+)
+
+app.include_router(
+    users.router,
+    prefix="/api/v1",
+)
