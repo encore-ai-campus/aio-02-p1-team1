@@ -158,14 +158,33 @@ def render_summary_strip(items):
     )
 
 
+def summarize_donut_trend(points):
+    ranked = sorted(points, key=lambda point: point["value"], reverse=True)
+    top = ranked[0]
+    total = sum(point["value"] for point in ranked)
+    share = (top["value"] / total) * 100 if total else 0
+    return (
+        f"최댓값은 {top['label']} {int(top['value'])}건이며 "
+        f"전체 {int(total)}건의 {share:.0f}%입니다."
+    )
+
+
 def render_donut_chart(title, points):
     with st.container(border=True):
-        st.subheader(title)
         valid_points = [
             point
             for point in points
             if point.get("label") and (point.get("value") or 0) > 0
         ]
+        with st.container(
+            horizontal=True,
+            vertical_alignment="center",
+            gap="small",
+            wrap=True,
+        ):
+            st.subheader(title)
+            if valid_points:
+                st.caption(summarize_donut_trend(valid_points))
         if not valid_points:
             render_empty_state(
                 "표시할 비율이 없습니다.",
