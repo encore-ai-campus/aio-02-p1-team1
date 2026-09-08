@@ -57,3 +57,13 @@ T = TypeVar("T")
 class SuccessResponse(BaseModel, Generic[T]):
     data: T
     meta: ResponseMeta
+
+# 닉네임 수정 요청 데이터
+class NicknameUpdateRequest(BaseModel):
+    nickname: str = Field(min_length=1, max_length=45)
+    @field_validator("nickname", mode="before")
+    @classmethod
+    def strip_nickname(cls, value):
+        if isinstance(value, str):
+            return value.strip()
+        return value
