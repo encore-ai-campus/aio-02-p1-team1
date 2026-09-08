@@ -14,6 +14,7 @@ from src.common.components import (
     render_summary_strip,
     render_toolbar_row,
 )
+from src.views.admin_analytics import get_error_next_action
 from src.views.admin_common import (
     get_category_name,
     get_feature_label,
@@ -44,6 +45,12 @@ def initialize_restaurant_state():
     st.session_state.setdefault(RESTAURANT_STATE_KEYS["detail"], None)
     st.session_state.setdefault(RESTAURANT_STATE_KEYS["page"], 1)
     st.session_state.setdefault(RESTAURANT_STATE_KEYS["last_search"], "")
+    result = st.session_state.get(RESTAURANT_STATE_KEYS["result"]) or {}
+    restaurant_result = result.get("restaurants") or {}
+    error = restaurant_result.get("error") or {}
+    if error.get("code") in {"AUTH_REQUIRED", "TOKEN_EXPIRED", "ADMIN_REQUIRED"}:
+        st.session_state[RESTAURANT_STATE_KEYS["result"]] = None
+        st.session_state[RESTAURANT_STATE_KEYS["needs_fetch"]] = True
 
 
 def fetch_restaurant_list():
@@ -318,6 +325,7 @@ def render_restaurant_detail():
                 render_error_state(
                     error_body.get("message") or "비활성화에 실패했습니다.",
                     request_id=error_body.get("request_id"),
+                    next_action=get_error_next_action(error_body),
                 )
 
 

@@ -1,6 +1,6 @@
 -- =========================================================
 -- PRD 17.4~17.10 확장 스키마
--- 조장 CREATE(supabase_schema.sql) 실행 후 SQL Editor에서 Run
+-- 기존 테이블 CREATE 실행 후 SQL Editor에서 Run
 -- 기존 데이터를 지우지 않는다.
 --
 -- 관련: PRD-BASELINE-1.0 17장, DEC-P16, P1-3, M1~M4

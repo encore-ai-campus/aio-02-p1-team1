@@ -1,4 +1,4 @@
--- 조장 restaurants 스키마용 시드
+-- 기존 restaurants 스키마용 시드
 -- Supabase Dashboard > SQL Editor에 붙여넣고 Run
 -- 식당명은 사진 폴더에서 가져왔고, 주소/전화/메뉴는 넣지 않음
 

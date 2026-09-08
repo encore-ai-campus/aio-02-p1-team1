@@ -8,6 +8,7 @@ from src.common.components import (
     render_section_title,
     render_sentiment_cards,
 )
+from src.views.admin_analytics import get_error_next_action
 from src.views.admin_common import (
     FEEDBACK_VALUE_TO_REACTION,
     get_category_name,
@@ -37,6 +38,12 @@ def get_access_token():
 def initialize_feedback_state():
     st.session_state.setdefault(FEEDBACK_STATE_KEYS["needs_fetch"], True)
     st.session_state.setdefault(FEEDBACK_STATE_KEYS["result"], None)
+    result = st.session_state.get(FEEDBACK_STATE_KEYS["result"])
+    if isinstance(result, dict):
+        error = (result.get("error") or {})
+        if error.get("code") in {"AUTH_REQUIRED", "TOKEN_EXPIRED", "ADMIN_REQUIRED"}:
+            st.session_state[FEEDBACK_STATE_KEYS["result"]] = None
+            st.session_state[FEEDBACK_STATE_KEYS["needs_fetch"]] = True
 
 
 def list_admin_feedback():
@@ -151,7 +158,7 @@ def render_admin_feedback():
         render_error_state(
             error_body.get("message") or "평가 목록을 불러오지 못했습니다.",
             request_id=error_body.get("request_id"),
-            next_action="FastAPI 관리자 평가 목록 API 연결 후 다시 확인해 주세요.",
+            next_action=get_error_next_action(error_body),
         )
         render_recommendation_satisfaction({"1": 0, "2": 0, "3": 0}, 0)
         render_feedback_table([])

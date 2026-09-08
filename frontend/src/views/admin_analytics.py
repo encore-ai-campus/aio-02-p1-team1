@@ -18,24 +18,31 @@ from src.common.components import (
     render_toolbar_row,
 )
 
-HTTP_METHOD_OPTIONS = ["전체", "GET", "POST", "PATCH", "DELETE"]
-STATUS_CODE_OPTIONS = [
-    "전체",
-    "200",
-    "201",
-    "204",
-    "400",
-    "401",
-    "403",
-    "404",
-    "409",
-    "422",
-    "429",
-    "500",
-    "502",
-    "503",
-    "504",
-]
+HTTP_METHOD_OPTIONS = ["전체", "GET(조회)", "POST(생성)", "PATCH(수정)", "DELETE(삭제)"]
+HTTP_METHOD_TO_PARAM = {
+    "GET(조회)": "GET",
+    "POST(생성)": "POST",
+    "PATCH(수정)": "PATCH",
+    "DELETE(삭제)": "DELETE",
+}
+HTTP_METHOD_TO_LABEL = {
+    "GET": "GET(조회)",
+    "POST": "POST(생성)",
+    "PATCH": "PATCH(수정)",
+    "DELETE": "DELETE(삭제)",
+}
+ENDPOINT_ALL_OPTION = "전체"
+STATUS_CLASS_OPTIONS = ["전체", "성공", "실패", "서버 오류"]
+STATUS_CLASS_TO_PARAM = {
+    "성공": "2xx",
+    "실패": "4xx",
+    "서버 오류": "5xx",
+}
+STATUS_CLASS_TO_LABEL = {
+    "2xx": "성공",
+    "4xx": "실패",
+    "5xx": "서버 오류",
+}
 DEFAULT_PAGE_SIZE = 20
 ADMIN_ANALYTICS_KEYS = {
     "draft_query": "admin_analytics_draft_query",
@@ -53,6 +60,7 @@ ADMIN_ANALYTICS_KEYS = {
     "evaluation_result": "admin_analytics_evaluation_result",
     "experiment_result": "admin_analytics_experiment_result",
     "summary_panel_view": "admin_analytics_summary_panel_view",
+    "eval_panel_view": "admin_analytics_eval_panel_view",
 }
 
 
@@ -69,6 +77,7 @@ def build_default_query():
         "period_end": period_end,
         "endpoint": "",
         "http_method": "전체",
+        "status_class": None,
         "status_code": None,
         "error_only": False,
         "page": 1,
@@ -76,24 +85,78 @@ def build_default_query():
     }
 
 
-def status_code_to_label(status_code):
+def status_class_from_query(query):
+    status_class = query.get("status_class")
+    if status_class in STATUS_CLASS_TO_LABEL:
+        return status_class
+    status_code = query.get("status_code")
     if not status_code:
-        return "전체"
-    return str(int(status_code))
-
-
-def parse_status_code_label(label):
-    if not label or label == "전체":
         return None
-    return int(label)
+    code = int(status_code)
+    if 200 <= code <= 299:
+        return "2xx"
+    if 400 <= code <= 499:
+        return "4xx"
+    if 500 <= code <= 599:
+        return "5xx"
+    return None
 
 
-def status_code_filter_options(query):
-    options = list(STATUS_CODE_OPTIONS)
-    current_label = status_code_to_label(query.get("status_code"))
-    if current_label not in options:
-        options.append(current_label)
-    return options, current_label
+def status_class_to_label(status_class):
+    return STATUS_CLASS_TO_LABEL.get(status_class) or STATUS_CLASS_OPTIONS[0]
+
+
+def parse_status_class_label(label):
+    return STATUS_CLASS_TO_PARAM.get(label)
+
+
+def parse_http_method_label(label):
+    if not label or label == "전체":
+        return "전체"
+    return HTTP_METHOD_TO_PARAM.get(label, "전체")
+
+
+def http_method_to_label(http_method):
+    if not http_method or http_method == "전체":
+        return "전체"
+    return HTTP_METHOD_TO_LABEL.get(http_method, http_method)
+
+
+def option_index(options, value):
+    if value in options:
+        return options.index(value)
+    return 0
+
+
+def list_endpoint_filter_options(query):
+    options = [ENDPOINT_ALL_OPTION]
+    seen = {ENDPOINT_ALL_OPTION}
+    result = st.session_state.get(ADMIN_ANALYTICS_KEYS["result"]) or {}
+    for key in ("usage", "latency", "errors"):
+        payload = (result.get(key) or {}).get("data")
+        for point in list_metric_points(payload):
+            path = str(point.get("endpoint") or "").strip()
+            if path and path not in seen:
+                seen.add(path)
+                options.append(path)
+    log_items, _total_count = list_api_log_items(
+        (result.get("logs") or {}).get("data")
+    )
+    for item in log_items:
+        path = str(item.get("endpoint") or item.get("endpoint_path") or "").strip()
+        if path and path not in seen:
+            seen.add(path)
+            options.append(path)
+    current = (query.get("endpoint") or "").strip()
+    if current and current not in seen:
+        options.append(current)
+    return options
+
+
+def format_datetime(value):
+    if isinstance(value, datetime):
+        return value.isoformat()
+    return str(value)
 
 
 def build_statistics_params(query):
@@ -116,8 +179,11 @@ def build_statistics_params(query):
     if http_method and http_method != "전체":
         params["http_method"] = http_method
 
+    status_class = status_class_from_query(query)
+    if status_class:
+        params["status_class"] = status_class
     status_code = query.get("status_code")
-    if status_code:
+    if status_code and not status_class:
         params["status_code"] = int(status_code)
 
     return params
@@ -145,8 +211,11 @@ def build_log_filters(query):
     http_method = query.get("http_method")
     if http_method and http_method != "전체":
         filters["http_method"] = http_method
+    status_class = status_class_from_query(query)
+    if status_class:
+        filters["status_class"] = status_class
     status_code = query.get("status_code")
-    if status_code:
+    if status_code and not status_class:
         filters["status_code"] = int(status_code)
     return filters
 
@@ -252,6 +321,31 @@ def fetch_admin_analytics(query):
     }
 
 
+def is_auth_error_payload(result):
+    if not isinstance(result, dict):
+        return False
+    error = result.get("error") or {}
+    if error.get("code") in {"AUTH_REQUIRED", "TOKEN_EXPIRED", "ADMIN_REQUIRED"}:
+        return True
+    if result.get("ok") is False and result.get("status_code") in {401, 403}:
+        return True
+    for key in ("usage", "latency", "errors", "logs", "restaurants", "categories"):
+        nested = result.get(key)
+        if isinstance(nested, dict) and is_auth_error_payload(nested):
+            return True
+    return False
+
+
+def clear_stale_admin_auth_results():
+    result = st.session_state.get(ADMIN_ANALYTICS_KEYS["result"])
+    if is_auth_error_payload(result):
+        st.session_state[ADMIN_ANALYTICS_KEYS["result"]] = None
+        st.session_state[ADMIN_ANALYTICS_KEYS["needs_fetch"]] = True
+    search_stats = st.session_state.get(ADMIN_ANALYTICS_KEYS["search_stats"])
+    if is_auth_error_payload(search_stats):
+        st.session_state[ADMIN_ANALYTICS_KEYS["search_stats"]] = None
+
+
 def initialize_admin_analytics_state():
     if ADMIN_ANALYTICS_KEYS["applied_query"] not in st.session_state:
         default_query = build_default_query()
@@ -270,6 +364,7 @@ def initialize_admin_analytics_state():
         st.session_state[ADMIN_ANALYTICS_KEYS["evaluation_result"]] = None
         st.session_state[ADMIN_ANALYTICS_KEYS["experiment_result"]] = None
         st.session_state[ADMIN_ANALYTICS_KEYS["summary_panel_view"]] = None
+        st.session_state[ADMIN_ANALYTICS_KEYS["eval_panel_view"]] = None
 
     st.session_state.setdefault(ADMIN_ANALYTICS_KEYS["search_stats"], None)
     st.session_state.setdefault(ADMIN_ANALYTICS_KEYS["cleaning_run_id"], "")
@@ -279,6 +374,8 @@ def initialize_admin_analytics_state():
     st.session_state.setdefault(ADMIN_ANALYTICS_KEYS["evaluation_result"], None)
     st.session_state.setdefault(ADMIN_ANALYTICS_KEYS["experiment_result"], None)
     st.session_state.setdefault(ADMIN_ANALYTICS_KEYS["summary_panel_view"], None)
+    st.session_state.setdefault(ADMIN_ANALYTICS_KEYS["eval_panel_view"], None)
+    clear_stale_admin_auth_results()
 
 
 def handle_filter_apply(
@@ -286,16 +383,16 @@ def handle_filter_apply(
     period_end,
     endpoint,
     http_method,
-    status_code,
-    error_only,
+    status_class,
 ):
     applied_query = st.session_state[ADMIN_ANALYTICS_KEYS["applied_query"]].copy()
     applied_query["period_start"] = period_start
     applied_query["period_end"] = period_end
     applied_query["endpoint"] = endpoint
     applied_query["http_method"] = http_method
-    applied_query["status_code"] = status_code
-    applied_query["error_only"] = error_only
+    applied_query["status_class"] = status_class
+    applied_query["status_code"] = None
+    applied_query["error_only"] = False
     applied_query["page"] = 1
     st.session_state[ADMIN_ANALYTICS_KEYS["applied_query"]] = applied_query
     st.session_state[ADMIN_ANALYTICS_KEYS["needs_fetch"]] = True
@@ -312,8 +409,11 @@ def handle_filter_reset():
     for widget_key in (
         "admin_analytics_period_input",
         "admin_analytics_endpoint_input",
+        "admin_analytics_endpoint_select",
         "admin_analytics_method_input",
+        "admin_analytics_method_select",
         "admin_analytics_status_input",
+        "admin_analytics_status_class_input",
         "admin_analytics_error_only_input",
     ):
         st.session_state.pop(widget_key, None)
@@ -421,46 +521,42 @@ def render_filter_form(query):
             ),
             key="admin_analytics_period_input",
         )
-        endpoint = st.text_input(
-            "엔드포인트",
-            value=query.get("endpoint") or "",
-            key="admin_analytics_endpoint_input",
-        )
-        method_column, error_column = st.columns(2)
-        with method_column:
-            http_method = st.selectbox(
+        endpoint_options = list_endpoint_filter_options(query)
+        current_endpoint = (query.get("endpoint") or "").strip() or ENDPOINT_ALL_OPTION
+        current_status_label = status_class_to_label(status_class_from_query(query))
+        with st.container(horizontal=True, gap="small", wrap=True):
+            endpoint_label = st.selectbox(
+                "엔드포인트",
+                options=endpoint_options,
+                index=option_index(endpoint_options, current_endpoint),
+                key="admin_analytics_endpoint_select",
+            )
+            http_method_label = st.selectbox(
                 "HTTP Method",
                 options=HTTP_METHOD_OPTIONS,
-                index=HTTP_METHOD_OPTIONS.index(query.get("http_method") or "전체"),
-                key="admin_analytics_method_input",
+                index=option_index(
+                    HTTP_METHOD_OPTIONS,
+                    http_method_to_label(query.get("http_method") or "전체"),
+                ),
+                key="admin_analytics_method_select",
             )
-        with error_column:
-            error_only = st.checkbox(
-                "에러만 보기",
-                value=bool(query.get("error_only")),
-                key="admin_analytics_error_only_input",
+            status_label = st.selectbox(
+                "상태 코드",
+                options=STATUS_CLASS_OPTIONS,
+                index=option_index(STATUS_CLASS_OPTIONS, current_status_label),
+                help="성공은 2xx, 실패는 4xx, 서버 오류는 5xx입니다.",
+                key="admin_analytics_status_class_input",
             )
-        status_options, current_status_label = status_code_filter_options(query)
-        status_label = st.pills(
-            "상태 코드",
-            options=status_options,
-            default=current_status_label,
-            selection_mode="single",
-            required=True,
-            key="admin_analytics_status_input",
-            width="stretch",
-        )
 
     if apply_clicked:
         period_start, period_end = parse_period_input(period_value, query)
-        parsed_status_code = parse_status_code_label(status_label)
+        endpoint = "" if endpoint_label == ENDPOINT_ALL_OPTION else endpoint_label
         handle_filter_apply(
             period_start,
             period_end,
             endpoint,
-            http_method,
-            parsed_status_code,
-            error_only,
+            parse_http_method_label(http_method_label),
+            parse_status_class_label(status_label),
         )
         st.rerun()
 
@@ -559,7 +655,7 @@ def summarize_chart_trend(rows, y_field):
 
     lowest = ranked[-1]
     lowest_text = f"{lowest['label']} {format_chart_value_text(y_field, lowest[y_field])}"
-    return f"최댓값은 {top_text}이고, 최솟값은 {lowest_text}입니다."
+    return f"최댓값은 {top_text},\n최솟값은 {lowest_text}입니다."
 
 
 def render_chart_title(title, subtitle=None):
@@ -571,7 +667,7 @@ def render_chart_title(title, subtitle=None):
     ):
         st.subheader(title)
         if subtitle:
-            st.caption(subtitle)
+            st.caption(subtitle.replace("\n", "<br>"), unsafe_allow_html=True)
 
 
 def render_points_chart(title, points, y_field, color, y_title):
@@ -710,14 +806,12 @@ def format_cleaning_report_lines(cleaning_data):
     source_count = int(cleaning_data.get("source_count") or 0)
     included_count = int(cleaning_data.get("included_count") or 0)
     excluded_count = int(cleaning_data.get("excluded_count") or 0)
-    version = cleaning_data.get("criteria_version") or "-"
     line1 = (
         "결측 필드·중복 로그·테스트 트래픽을 제거했습니다. "
         f"원본 {source_count}건 중 포함 {included_count}건, 제외 {excluded_count}건입니다."
     )
     line2 = (
-        "엔드포인트 경로의 UUID는 {id}로, 에러 코드는 빈 값을 없애 한 표기로 통일했습니다. "
-        f"규칙 버전 {version}."
+        "엔드포인트 경로의 UUID는 {id}로, 에러 코드는 빈 값을 없애 한 표기로 통일했습니다."
     )
     return line1, line2
 
@@ -910,6 +1004,57 @@ def create_log_summary(query, cleaning_run_id):
     )
 
 
+def cleaning_run_succeeded(cleaning_run_id, cleaning_result):
+    return bool(
+        (cleaning_run_id or "").strip()
+        and cleaning_result
+        and cleaning_result.get("ok")
+        and (cleaning_result.get("data") or {}).get("status") in (None, "succeeded")
+    )
+
+
+def ensure_succeeded_cleaning_run(query):
+    cleaning_run_id = (
+        st.session_state.get(ADMIN_ANALYTICS_KEYS["cleaning_run_id"]) or ""
+    ).strip()
+    cleaning_result = st.session_state.get(ADMIN_ANALYTICS_KEYS["cleaning_result"]) or {}
+    if cleaning_run_succeeded(cleaning_run_id, cleaning_result):
+        return cleaning_run_id, None
+
+    cleaning_result = create_cleaning_run(query)
+    st.session_state[ADMIN_ANALYTICS_KEYS["cleaning_result"]] = cleaning_result
+    if not cleaning_result.get("ok"):
+        return "", cleaning_result.get("error") or {
+            "message": "로그 정제가 실패했습니다."
+        }
+
+    cleaning_result = poll_cleaning_result(cleaning_result)
+    cleaning_data = cleaning_result.get("data") or {}
+    created_id = cleaning_data.get("id") or cleaning_data.get("cleaning_run_id")
+    cleaning_run_id = str(created_id or "")
+    st.session_state[ADMIN_ANALYTICS_KEYS["cleaning_run_id"]] = cleaning_run_id
+    st.session_state[ADMIN_ANALYTICS_KEYS["needs_fetch"]] = True
+
+    status = cleaning_data.get("status")
+    if not cleaning_run_id or status == "failed":
+        return cleaning_run_id, {"message": "로그 정제가 실패했습니다."}
+    if status == "running":
+        return cleaning_run_id, {
+            "message": "로그 정제가 아직 끝나지 않았습니다. 잠시 후 다시 요약 실행을 눌러 주세요."
+        }
+    return cleaning_run_id, None
+
+
+def run_log_summary_like_stats(query):
+    cleaning_run_id, error = ensure_succeeded_cleaning_run(query)
+    if error:
+        return {"ok": False, "error": error}
+    summary_result = create_log_summary(query, cleaning_run_id)
+    st.session_state[ADMIN_ANALYTICS_KEYS["summary_result"]] = summary_result
+    st.session_state[ADMIN_ANALYTICS_KEYS["summary_panel_view"]] = "summary"
+    return summary_result
+
+
 def get_log_summary(summary_id):
     return get_json(
         f"/admin/log-summaries/{summary_id}",
@@ -1032,10 +1177,8 @@ def render_summary_panel(query):
         st.session_state.get(ADMIN_ANALYTICS_KEYS["cleaning_run_id"]) or ""
     ).strip()
     cleaning_result = st.session_state.get(ADMIN_ANALYTICS_KEYS["cleaning_result"]) or {}
-    cleaning_succeeded = bool(
-        current_cleaning_run_id
-        and cleaning_result.get("ok")
-        and (cleaning_result.get("data") or {}).get("status") in (None, "succeeded")
+    cleaning_succeeded = cleaning_run_succeeded(
+        current_cleaning_run_id, cleaning_result
     )
 
     with render_toolbar_row():
@@ -1126,11 +1269,152 @@ def render_summary_panel(query):
         render_log_detail(log_items)
 
 
-def render_evaluation_panel():
+def get_run_score_averages(runs, run_type):
+    totals = []
+    facts = []
+    for run in runs:
+        if run.get("run_type") != run_type:
+            continue
+        totals.append(float(run.get("total_score") or 0))
+        facts.append(float(run.get("factuality_score") or 0))
+    if not totals:
+        return None
+    return {
+        "total": round(sum(totals) / len(totals), 2),
+        "factuality": round(sum(facts) / len(facts), 2),
+    }
+
+
+def render_experiment_change_explanation(experiment_data):
+    before_version = experiment_data.get("before_version") or "v1"
+    after_version = experiment_data.get("after_version") or "v2"
+    hypothesis = experiment_data.get("hypothesis") or ""
+    change_description = experiment_data.get("change_description") or ""
+    st.write("어떻게 바꿨는지")
+    if hypothesis:
+        st.write(hypothesis)
+    if change_description:
+        st.write(change_description)
+    st.caption(f"버전: {before_version} → {after_version}")
+
+    runs = experiment_data.get("runs") or []
+    before = get_run_score_averages(runs, "before")
+    after = get_run_score_averages(runs, "after")
+    st.write("어떻게 개선되었는지")
+    if not before or not after:
+        st.caption("같은 사례의 전후 점수가 아직 없습니다. 개선실험이 끝나면 여기에 표시합니다.")
+        return
+    delta = round(after["total"] - before["total"], 2)
+    improved = delta >= 5 and after["factuality"] >= before["factuality"]
+    st.write(
+        f"{before_version} 총점 평균 {before['total']}점, "
+        f"{after_version} {after['total']}점입니다. 차이는 {delta}점입니다. "
+        f"사실 일치도는 {before['factuality']}점에서 {after['factuality']}점입니다."
+    )
+    if improved:
+        st.write("총점이 5점 이상 오르고 사실 일치도가 떨어지지 않아 성공 기준을 충족합니다.")
+    else:
+        st.write("성공 기준(총점 +5·사실 미하락)을 충족하지 못했습니다. 결과를 성공으로 과장하지 않습니다.")
+
+
+def render_evaluation_result_column(evaluation_result, summary_id):
+    st.subheader("품질평가 결과")
+    if not summary_id:
+        render_error_state(
+            "품질평가를 실행하려면 먼저 요약을 실행해 주세요.",
+            next_action="요약 실행을 먼저 누릅니다.",
+        )
+        return
+    if evaluation_result is None:
+        render_empty_state(
+            "아직 품질평가를 실행하지 않았습니다.",
+            next_action="품질평가를 누르면 이 결과만 보입니다.",
+        )
+        return
+    if not evaluation_result.get("ok"):
+        error_body = evaluation_result.get("error") or {}
+        render_error_state(
+            error_body.get("message") or "품질평가에 실패했습니다.",
+            request_id=error_body.get("request_id"),
+        )
+        return
+
+    evaluation_data = evaluation_result.get("data") or {}
+    factuality = float(evaluation_data.get("factuality_score") or 0)
+    completeness = float(evaluation_data.get("completeness_score") or 0)
+    total_score = float(evaluation_data.get("total_score") or 0)
+    passed = total_score >= 80 and factuality >= 80
+    st.write("점수 측정 결과")
+    st.write(
+        {
+            "run_type": evaluation_data.get("run_type"),
+            "factuality_score": factuality,
+            "completeness_score": completeness,
+            "total_score": total_score,
+            "notes": evaluation_data.get("notes"),
+        }
+    )
+    st.write(
+        "factuality_score(사실 일치)는 금지 사실이나 근거 없는 단정이 없으면 높고, "
+        "있으면 그 항목은 0점입니다. completeness_score(완전성)는 기대 사실이 요약 문에 "
+        "얼마나 나왔는지입니다. 총점은 사실 60% + 완전 30% + 근거 연결 10%입니다."
+    )
+    st.caption(
+        f"{'합격' if passed else '불합격'} (총점 80 이상이고 사실 일치 80 이상). "
+        "notes에는 활성 사례 몇 건을 채점했는지, 기대 사실 확인 건수, 전후 비교가 있습니다."
+    )
+
+
+def render_experiment_result_column(experiment_result, summary_id):
+    st.subheader("개선실험 결과")
+    if not summary_id:
+        render_error_state(
+            "개선실험을 실행하려면 먼저 요약을 실행해 주세요.",
+            next_action="요약 실행을 먼저 누릅니다.",
+        )
+        return
+    if experiment_result is None:
+        render_empty_state(
+            "아직 개선실험을 실행하지 않았습니다.",
+            next_action="개선실험을 누르면 이 결과만 보입니다.",
+        )
+        return
+    if not experiment_result.get("ok"):
+        error_body = experiment_result.get("error") or {}
+        render_error_state(
+            error_body.get("message") or "개선실험 저장에 실패했습니다.",
+            request_id=error_body.get("request_id"),
+        )
+        return
+
+    experiment_data = experiment_result.get("data") or {}
+    experiment_id = experiment_data.get("id")
+    if experiment_id:
+        polled = get_improvement_experiment(experiment_id)
+        if polled.get("ok"):
+            experiment_data = polled.get("data") or experiment_data
+            st.session_state[ADMIN_ANALYTICS_KEYS["experiment_result"]] = polled
+    render_experiment_change_explanation(experiment_data)
+    runs = experiment_data.get("runs") or []
+    if runs:
+        st.dataframe(pd.DataFrame(runs), hide_index=True)
+
+
+def render_evaluation_panel(query=None):
+    query = query or st.session_state.get(ADMIN_ANALYTICS_KEYS["applied_query"])
+    current_cleaning_run_id = (
+        st.session_state.get(ADMIN_ANALYTICS_KEYS["cleaning_run_id"]) or ""
+    ).strip()
+    cleaning_result = st.session_state.get(ADMIN_ANALYTICS_KEYS["cleaning_result"]) or {}
+    cleaning_succeeded = cleaning_run_succeeded(
+        current_cleaning_run_id, cleaning_result
+    )
+    summary_id = get_current_summary_id()
+
     with render_toolbar_row():
         render_section_title(
-            "품질평가·개선 실험",
-            "사전 정의 사례로 요약 사실 일치도를 점수화하고, 개선 가설을 기록합니다.",
+            "요약품질평가",
+            "요약 실행·품질평가·개선실험은 한 번에 한 결과만 전체 너비로 표시합니다.",
         )
         with st.container(
             horizontal=True,
@@ -1139,46 +1423,68 @@ def render_evaluation_panel():
             wrap=False,
             width="content",
         ):
-            evaluation_clicked = st.button(
-                "품질평가 실행",
+            summary_clicked = st.button(
+                "요약 실행",
                 type="primary",
+                width="content",
+                key="admin_eval_summary_button",
+            )
+            evaluation_clicked = st.button(
+                "품질평가",
                 width="content",
                 key="admin_analytics_evaluation_button",
             )
             experiment_clicked = st.button(
-                "개선 실험 저장",
+                "개선실험",
                 width="content",
                 key="admin_analytics_experiment_button",
             )
 
-    st.write(
-        "정답을 미리 정해 둔 로그 요약 사례는, 지금 만든 LLM 요약이 실제 로그와 맞는지 "
-        "채점하기 위한 모범 답안입니다. 성공 트래픽, 에러 급증, 지연, 데이터 부족처럼 "
-        "서로 다른 상황 10개를 시드로 넣어 두었습니다. 각 사례에는 요약에 반드시 나와야 할 사실, "
-        "나오면 안 되는 금지 사실, 근거가 될 로그 ID가 있습니다."
-    )
-    st.caption(
-        "품질평가 실행은 통계분석 및 요약에서 만든 요약을 이 10개 사례와 비교합니다. "
-        "실험이 있으면 같은 사례로 before(v1) 다음 after(v2)를 채점합니다."
-    )
-
-    summary_id = get_current_summary_id()
-    experiment_result = st.session_state.get(
-        ADMIN_ANALYTICS_KEYS["experiment_result"]
-    )
-    experiment_id = None
-    if experiment_result and experiment_result.get("ok"):
-        experiment_id = (experiment_result.get("data") or {}).get("id")
-
-    if evaluation_clicked:
-        if not summary_id:
+    if summary_clicked:
+        st.session_state[ADMIN_ANALYTICS_KEYS["eval_panel_view"]] = "summary"
+        if not query:
             render_error_state(
-                "품질평가를 실행하려면 먼저 요약을 실행해 주세요.",
-                next_action="통계분석 및 요약에서 정제 후 요약을 실행합니다.",
+                "요약을 실행하려면 조회 기간이 필요합니다.",
+                next_action="통계분석 및 요약에서 기간을 적용한 뒤 다시 눌러 주세요.",
             )
         else:
+            spinner_text = (
+                "로그 요약을 실행하고 있습니다."
+                if cleaning_succeeded
+                else "로그를 정제한 뒤 요약을 실행하고 있습니다."
+            )
+            with st.spinner(spinner_text):
+                summary_result = run_log_summary_like_stats(query)
+            st.session_state[ADMIN_ANALYTICS_KEYS["summary_result"]] = summary_result
+            st.session_state[ADMIN_ANALYTICS_KEYS["summary_panel_view"]] = "summary"
+            st.rerun()
+
+    poll_summary_result(
+        st.session_state.get(ADMIN_ANALYTICS_KEYS["summary_result"])
+    )
+    summary_id = get_current_summary_id()
+
+    if evaluation_clicked:
+        st.session_state[ADMIN_ANALYTICS_KEYS["eval_panel_view"]] = "evaluation"
+        if summary_id:
             with st.spinner("품질평가를 실행하고 있습니다."):
-                if experiment_id:
+                evaluation_result = create_evaluation_run(
+                    summary_id,
+                    run_type="baseline",
+                )
+            st.session_state[ADMIN_ANALYTICS_KEYS["evaluation_result"]] = (
+                evaluation_result
+            )
+            st.rerun()
+
+    if experiment_clicked:
+        st.session_state[ADMIN_ANALYTICS_KEYS["eval_panel_view"]] = "experiment"
+        if summary_id:
+            with st.spinner("개선실험을 저장하고 전후 평가를 실행하고 있습니다."):
+                created = create_improvement_experiment()
+                st.session_state[ADMIN_ANALYTICS_KEYS["experiment_result"]] = created
+                if created.get("ok"):
+                    experiment_id = (created.get("data") or {}).get("id")
                     before_result = create_evaluation_run(
                         summary_id,
                         run_type="before",
@@ -1192,90 +1498,35 @@ def render_evaluation_panel():
                         )
                     else:
                         evaluation_result = before_result
-                else:
-                    evaluation_result = create_evaluation_run(
-                        summary_id,
-                        run_type="baseline",
+                    st.session_state[ADMIN_ANALYTICS_KEYS["evaluation_result"]] = (
+                        evaluation_result
                     )
-            st.session_state[ADMIN_ANALYTICS_KEYS["evaluation_result"]] = (
-                evaluation_result
-            )
             st.rerun()
 
-    if experiment_clicked:
-        created = create_improvement_experiment()
-        st.session_state[ADMIN_ANALYTICS_KEYS["experiment_result"]] = created
-        st.rerun()
-
+    summary_result = st.session_state.get(ADMIN_ANALYTICS_KEYS["summary_result"])
     evaluation_result = st.session_state.get(
         ADMIN_ANALYTICS_KEYS["evaluation_result"]
     )
-    if evaluation_result is None:
-        render_empty_state(
-            "아직 품질평가를 실행하지 않았습니다.",
-            next_action="요약 실행 후 품질평가 실행을 누릅니다.",
-        )
-    elif not evaluation_result.get("ok"):
-        error_body = evaluation_result.get("error") or {}
-        render_error_state(
-            error_body.get("message") or "품질평가에 실패했습니다.",
-            request_id=error_body.get("request_id"),
-        )
-    else:
-        evaluation_data = evaluation_result.get("data") or {}
-        factuality = float(evaluation_data.get("factuality_score") or 0)
-        completeness = float(evaluation_data.get("completeness_score") or 0)
-        total_score = float(evaluation_data.get("total_score") or 0)
-        passed = total_score >= 80 and factuality >= 80
-        st.write("점수 측정 결과")
-        st.write(
-            {
-                "run_type": evaluation_data.get("run_type"),
-                "factuality_score": factuality,
-                "completeness_score": completeness,
-                "total_score": total_score,
-                "notes": evaluation_data.get("notes"),
-            }
-        )
-        st.write(
-            "factuality_score(사실 일치)는 금지 사실이나 근거 없는 단정이 없으면 높고, "
-            "있으면 그 항목은 0점입니다. completeness_score(완전성)는 기대 사실이 요약 문에 "
-            "얼마나 나왔는지입니다. 총점은 사실 60% + 완전 30% + 근거 연결 10%입니다."
-        )
-        st.caption(
-            f"{'합격' if passed else '불합격'} (총점 80 이상이고 사실 일치 80 이상). "
-            "notes에는 활성 사례 몇 건을 채점했는지, 기대 사실 확인 건수, 전후 비교가 있습니다."
-        )
-
-    if experiment_result is None:
-        st.caption("개선 실험은 가설과 전후 버전을 저장한 뒤 같은 사례로 다시 평가합니다.")
-        return
-    if not experiment_result.get("ok"):
-        error_body = experiment_result.get("error") or {}
-        render_error_state(
-            error_body.get("message") or "개선 실험 저장에 실패했습니다.",
-            request_id=error_body.get("request_id"),
-        )
-        return
-
-    experiment_data = experiment_result.get("data") or {}
-    if experiment_id:
-        polled = get_improvement_experiment(experiment_id)
-        if polled.get("ok"):
-            experiment_data = polled.get("data") or experiment_data
-            st.session_state[ADMIN_ANALYTICS_KEYS["experiment_result"]] = polled
-    st.write(
-        {
-            "name": experiment_data.get("name"),
-            "hypothesis": experiment_data.get("hypothesis"),
-            "before_version": experiment_data.get("before_version"),
-            "after_version": experiment_data.get("after_version"),
-            "status": experiment_data.get("status"),
-        }
+    experiment_result = st.session_state.get(
+        ADMIN_ANALYTICS_KEYS["experiment_result"]
     )
-    runs = experiment_data.get("runs") or []
-    if runs:
-        st.dataframe(pd.DataFrame(runs), hide_index=True)
+    panel_view = st.session_state.get(ADMIN_ANALYTICS_KEYS["eval_panel_view"])
+    if panel_view is None:
+        if summary_result is not None:
+            panel_view = "summary"
+
+    with st.container(border=True):
+        if panel_view == "summary":
+            render_summary_report_column(summary_result)
+        elif panel_view == "evaluation":
+            render_evaluation_result_column(evaluation_result, summary_id)
+        elif panel_view == "experiment":
+            render_experiment_result_column(experiment_result, summary_id)
+        else:
+            render_empty_state(
+                "아직 요약을 실행하지 않았습니다.",
+                next_action="요약 실행을 누르면 요약만 보입니다. 품질평가·개선실험도 각각 그 결과만 보입니다.",
+            )
 
 
 def render_log_table(log_items, total_count, export_df=None):
