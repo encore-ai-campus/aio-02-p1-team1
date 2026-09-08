@@ -5,7 +5,6 @@ from uuid import UUID
 from pydantic import BaseModel, EmailStr, Field
 
 # ── 메시지 ────────────────────────────────────────────────────────
-# 주의: role 은 Literal 로 값을 고정한다. str 로 두면 'robot' 같은 값이 그대로 통과한다.
 # MessageCreate — role(Literal), content(1자 이상)
 class MessageCreate(BaseModel):
     role: Literal["user", "assistant"]
