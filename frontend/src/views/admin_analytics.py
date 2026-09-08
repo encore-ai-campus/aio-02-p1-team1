@@ -9,11 +9,13 @@ from src.common.components import (
     CHART_DANGER,
     CHART_PRIMARY,
     CHART_SECONDARY,
+    render_donut_chart,
+    render_download_button,
     render_empty_state,
     render_error_state,
     render_loading_state,
-    render_page_header,
     render_section_title,
+    render_toolbar_row,
 )
 
 HTTP_METHOD_OPTIONS = ["전체", "GET", "POST", "PATCH", "DELETE"]
@@ -242,10 +244,6 @@ def initialize_admin_analytics_state():
     st.session_state.setdefault(ADMIN_ANALYTICS_KEYS["cleaning_result"], None)
     st.session_state.setdefault(ADMIN_ANALYTICS_KEYS["summary_result"], None)
     st.session_state.setdefault(ADMIN_ANALYTICS_KEYS["selected_claim_text"], None)
-    st.session_state.setdefault(
-        "admin_analytics_cleaning_run_id_input",
-        st.session_state.get(ADMIN_ANALYTICS_KEYS["cleaning_run_id"]) or "",
-    )
 
 
 def handle_filter_apply(
@@ -330,9 +328,23 @@ def parse_period_input(period_value, fallback_query):
 
 
 def render_filter_form(query):
-    render_section_title("조회 조건")
-
     with st.form("admin_analytics_filter_form"):
+        with render_toolbar_row():
+            render_section_title(
+                "조회 조건",
+                "기간과 필터를 적용한 뒤 통계와 로그를 조회합니다.",
+            )
+            with st.container(
+                horizontal=True,
+                vertical_alignment="center",
+                gap="small",
+                wrap=False,
+                width="content",
+            ):
+                apply_clicked = st.form_submit_button("적용", type="primary")
+                reset_clicked = st.form_submit_button("초기화")
+                refresh_clicked = st.form_submit_button("새로고침")
+
         period_value = st.date_input(
             "조회 기간",
             value=(
@@ -371,14 +383,6 @@ def render_filter_form(query):
                 key="admin_analytics_error_only_input",
             )
 
-        apply_column, reset_column, refresh_column = st.columns(3)
-        with apply_column:
-            apply_clicked = st.form_submit_button("적용", type="primary")
-        with reset_column:
-            reset_clicked = st.form_submit_button("초기화")
-        with refresh_column:
-            refresh_clicked = st.form_submit_button("새로고침")
-
     if apply_clicked:
         period_start, period_end = parse_period_input(period_value, query)
         parsed_status_code = int(status_code) if status_code else None
@@ -411,8 +415,6 @@ def render_applied_query_caption(query, fetched_at):
 
 
 def render_kpi_row(usage_points, log_items):
-    render_section_title("운영 KPI")
-
     request_count = aggregate_request_count(usage_points)
     error_count = aggregate_error_count(usage_points)
     average_response_time = aggregate_average_response_time(usage_points)
@@ -480,7 +482,6 @@ def render_points_chart(title, points, y_field, color):
 
 
 def render_operation_charts(usage_points, latency_points, error_points):
-    render_section_title("API 운영 지표")
     left_column, right_column = st.columns(2, gap="medium")
 
     with left_column:
@@ -635,31 +636,33 @@ def render_evidence_table(evidence_items):
 
 
 def render_summary_panel(query):
-    render_section_title("LLM 로그 요약")
-    st.caption("M5: 지정 기간의 이상 징후와 주요 이슈를 요약하고, 근거가 된 원본 로그를 함께 봅니다.")
+    with render_toolbar_row():
+        render_section_title(
+            "LLM 로그 요약",
+            "지정 기간의 이상 징후와 주요 이슈를 요약하고, 근거가 된 원본 로그를 함께 봅니다.",
+        )
+        with st.container(
+            horizontal=True,
+            vertical_alignment="center",
+            gap="small",
+            wrap=False,
+            width="content",
+        ):
+            cleaning_clicked = st.button(
+                "정제 실행",
+                width="content",
+                key="admin_analytics_cleaning_button",
+            )
+            summary_clicked = st.button(
+                "요약 실행",
+                type="primary",
+                width="content",
+                key="admin_analytics_summary_button",
+            )
 
     current_cleaning_run_id = (
         st.session_state.get(ADMIN_ANALYTICS_KEYS["cleaning_run_id"]) or ""
-    )
-    cleaning_run_id_input = st.text_input(
-        "정제 실행 ID",
-        key="admin_analytics_cleaning_run_id_input",
-        help="통계와 요약은 같은 정제 실행 ID를 사용합니다.",
-    )
-    run_column, summary_column = st.columns(2)
-    with run_column:
-        cleaning_clicked = st.button(
-            "정제 실행",
-            width="stretch",
-            key="admin_analytics_cleaning_button",
-        )
-    with summary_column:
-        summary_clicked = st.button(
-            "요약 실행",
-            type="primary",
-            width="stretch",
-            key="admin_analytics_summary_button",
-        )
+    ).strip()
 
     if cleaning_clicked:
         cleaning_result = create_cleaning_run(query)
@@ -669,24 +672,20 @@ def render_summary_panel(query):
             created_id = (
                 cleaning_data.get("id")
                 or cleaning_data.get("cleaning_run_id")
-                or cleaning_run_id_input
             )
             st.session_state[ADMIN_ANALYTICS_KEYS["cleaning_run_id"]] = str(
-                created_id or ""
-            )
-            st.session_state["admin_analytics_cleaning_run_id_input"] = str(
-                created_id or ""
+                created_id or current_cleaning_run_id
             )
             st.session_state[ADMIN_ANALYTICS_KEYS["needs_fetch"]] = True
         st.rerun()
 
     if summary_clicked:
-        cleaning_run_id = (cleaning_run_id_input or current_cleaning_run_id).strip()
+        cleaning_run_id = current_cleaning_run_id
         st.session_state[ADMIN_ANALYTICS_KEYS["cleaning_run_id"]] = cleaning_run_id
         if not cleaning_run_id:
             render_error_state(
-                "요약을 실행하려면 정제 실행 ID가 필요합니다.",
-                next_action="정제를 먼저 실행하거나 ID를 입력해 주세요.",
+                "요약을 실행하려면 먼저 정제를 실행해 주세요.",
+                next_action="정제 실행 후 같은 기간으로 요약을 실행합니다.",
             )
         else:
             summary_result = create_log_summary(query, cleaning_run_id)
@@ -719,11 +718,7 @@ def render_summary_panel(query):
         elif cleaning_status == "failed":
             render_error_state("로그 정제가 실패했습니다.")
         else:
-            st.caption(
-                "정제 실행 ID: "
-                f"{cleaning_id or current_cleaning_run_id or '-'} / "
-                f"상태: {cleaning_status or 'succeeded'}"
-            )
+            st.caption(f"정제 상태: {cleaning_status or 'succeeded'}")
 
     summary_result = st.session_state.get(ADMIN_ANALYTICS_KEYS["summary_result"])
     if summary_result is None:
@@ -783,10 +778,25 @@ def render_summary_panel(query):
         )
     render_section_title("요약 근거 로그")
     render_evidence_table(evidence_items)
+    result = st.session_state.get(ADMIN_ANALYTICS_KEYS["result"]) or {}
+    log_items, _total_count = list_api_log_items(
+        (result.get("logs") or {}).get("data")
+    )
+    render_log_detail(log_items)
 
 
-def render_log_table(log_items, total_count):
-    render_section_title("원본 로그")
+def render_log_table(log_items, total_count, export_df=None):
+    caption = f"전체 {total_count}건, 기본 정렬 occurred_at DESC"
+    with render_toolbar_row():
+        render_section_title("최근 요청 로그", caption)
+        if export_df is not None:
+            render_download_button(
+                "전체 로그 내려받기",
+                export_df,
+                "playeat_request_logs.csv",
+                "admin_logs_download",
+                width="content",
+            )
 
     if not log_items:
         render_empty_state("조건에 맞는 원본 로그가 없습니다.")
@@ -809,7 +819,6 @@ def render_log_table(log_items, total_count):
         )
 
     log_df = pd.DataFrame(table_rows)
-    st.caption(f"전체 {total_count}건, 기본 정렬 occurred_at DESC")
     selected = st.dataframe(
         log_df,
         hide_index=True,
@@ -904,64 +913,92 @@ def get_error_next_action(error_body):
     return "기존 화면을 성공 결과처럼 바꾸지 않고 다시 조회하세요."
 
 
-def render_admin_analytics():
-    initialize_admin_analytics_state()
-    render_page_header(
-        "검색정보분석",
-        "한 화면에서 사용량·응답시간·에러율 통계와 LLM 로그 요약을 기간·필터로 조회합니다.",
-    )
-
-    query = st.session_state[ADMIN_ANALYTICS_KEYS["applied_query"]]
-    render_filter_form(query)
-    refresh_admin_analytics_if_needed()
-    result = st.session_state.get(ADMIN_ANALYTICS_KEYS["result"])
-
-    if result is None:
-        render_loading_state("처음 조회를 준비하고 있습니다.")
-        return
-
-    render_applied_query_caption(query, result.get("fetched_at"))
-
-    usage_result = result.get("usage") or {}
-    latency_result = result.get("latency") or {}
-    error_result = result.get("errors") or {}
-    log_result = result.get("logs") or {}
-
-    render_section_title("통계 분석")
-    st.caption("M3: 사용량, 응답시간, 에러율을 같은 기간·필터로 봅니다.")
-    stats_error = None
-    for item in (usage_result, latency_result, error_result):
-        if not item.get("ok"):
-            stats_error = item.get("error")
-            break
-    if stats_error:
-        render_error_state(
-            stats_error.get("message") or "통계를 불러오지 못했습니다.",
-            request_id=stats_error.get("request_id"),
-            next_action=get_error_next_action(stats_error),
+def build_recent_request_rows(log_items):
+    rows = []
+    for index, item in enumerate(log_items, start=1):
+        rows.append(
+            {
+                "번호": index,
+                "요청 시간": item.get("occurred_at") or "-",
+                "음식별": item.get("food_category") or "-",
+                "가격대": item.get("price_range") or "-",
+                "메뉴 특성": item.get("menu_feature") or "-",
+                "검색 키워드": item.get("search_keyword")
+                or item.get("endpoint")
+                or item.get("endpoint_path")
+                or "-",
+                "사용자 반응": item.get("user_reaction") or "-",
+            }
         )
-    else:
-        usage_points = list_metric_points(usage_result.get("data"))
-        latency_points = list_metric_points(latency_result.get("data"))
-        error_points = list_metric_points(error_result.get("data"))
-        log_items, _total_count = list_api_log_items(log_result.get("data"))
-        if not usage_points and not latency_points and not error_points:
-            render_empty_state("선택한 기간에 표시할 통계가 없습니다.")
-        else:
-            render_kpi_row(usage_points, log_items)
-            render_operation_charts(usage_points, latency_points, error_points)
+    return rows
 
-    render_summary_panel(query)
+
+def render_search_ratio_summary():
+    render_section_title("검색정보 요약")
+    food_column, price_column, feature_column = st.columns(3, gap="medium")
+    ratios = {}
+    with food_column:
+        render_donut_chart("음식별 검색 비율", ratios.get("food") or [])
+    with price_column:
+        render_donut_chart("가격대별 검색 비율", ratios.get("price") or [])
+    with feature_column:
+        render_donut_chart("메뉴 특성별 검색 비율", ratios.get("feature") or [])
+
+
+def render_recent_request_logs(log_result):
+    empty_columns = [
+        "번호",
+        "요청 시간",
+        "음식별",
+        "가격대",
+        "메뉴 특성",
+        "검색 키워드",
+        "사용자 반응",
+    ]
+    log_items, _total_count = list_api_log_items(
+        log_result.get("data") if log_result.get("ok") else None
+    )
+    log_df = (
+        pd.DataFrame(build_recent_request_rows(log_items))
+        if log_result.get("ok")
+        else pd.DataFrame(columns=empty_columns)
+    )
+    export_df = log_df if not log_df.empty else pd.DataFrame(columns=empty_columns)
+
+    with render_toolbar_row():
+        render_section_title(
+            "최근 요청 로그",
+            "원본 API 로그의 시각·엔드포인트를 표시합니다. 음식·가격·반응 컬럼은 해당 필드가 없으면 비웁니다.",
+        )
+        render_download_button(
+            "전체 로그 내려받기",
+            export_df,
+            "playeat_request_logs.csv",
+            "admin_analytics_log_download",
+            width="content",
+        )
 
     if not log_result.get("ok"):
         error_body = log_result.get("error") or {}
         render_error_state(
-            error_body.get("message") or "원본 로그를 불러오지 못했습니다.",
+            error_body.get("message") or "요청 로그를 불러오지 못했습니다.",
             request_id=error_body.get("request_id"),
             next_action=get_error_next_action(error_body),
         )
         return
+    if log_df.empty:
+        render_empty_state("조건에 맞는 요청 로그가 없습니다.")
+        return
+    st.dataframe(log_df, hide_index=True)
 
-    log_items, total_count = list_api_log_items(log_result.get("data"))
-    render_log_table(log_items, total_count)
-    render_log_detail(log_items)
+
+def render_admin_analytics():
+    initialize_admin_analytics_state()
+    refresh_admin_analytics_if_needed()
+    render_search_ratio_summary()
+    result = st.session_state.get(ADMIN_ANALYTICS_KEYS["result"])
+    if result is None:
+        render_loading_state("처음 조회를 준비하고 있습니다.")
+        return
+    render_recent_request_logs(result.get("logs") or {})
+

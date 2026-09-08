@@ -15,6 +15,7 @@ st.set_page_config(
     page_title="맛집친구",
     page_icon="🍴",
     layout="wide",
+    initial_sidebar_state="expanded",
 )
 
 

@@ -10,24 +10,66 @@ CHART_DANGER = "#C62828"
 CHART_TEXT = "#333333"
 CHART_MUTED = "#666666"
 CHART_BORDER = "#DDDDDD"
+CHART_CATEGORY_COLORS = [
+    CHART_PRIMARY,
+    CHART_SECONDARY,
+    CHART_WARNING,
+    CHART_MUTED,
+]
 
 
-def render_page_header(title, caption):
+def render_page_header(title, caption=None):
+    caption_html = (
+        f'<p class="playeat-page-caption">{caption}</p>' if caption else ""
+    )
     st.markdown(
         dedent(
             f"""
-            <h1 class="playeat-page-title">{title}</h1>
-            <p class="playeat-page-caption">{caption}</p>
+            <div class="playeat-page-heading">
+                <h1 class="playeat-page-title">{title}</h1>
+                {caption_html}
+            </div>
             """
         ),
         unsafe_allow_html=True,
     )
 
 
-def render_section_title(title):
+def render_section_title(title, caption=None):
+    caption_html = (
+        f'<p class="playeat-section-side-caption">{caption}</p>' if caption else ""
+    )
     st.markdown(
-        f'<h2 class="playeat-section-title">{title}</h2>',
+        dedent(
+            f"""
+            <div class="playeat-section-heading">
+                <h2 class="playeat-section-title">{title}</h2>
+                {caption_html}
+            </div>
+            """
+        ),
         unsafe_allow_html=True,
+    )
+
+
+def render_toolbar_row():
+    return st.container(
+        horizontal=True,
+        vertical_alignment="center",
+        horizontal_alignment="distribute",
+        gap="small",
+        wrap=False,
+    )
+
+
+def render_toolbar_actions():
+    return st.container(
+        horizontal=True,
+        vertical_alignment="center",
+        horizontal_alignment="right",
+        gap="small",
+        wrap=False,
+        width="content",
     )
 
 
@@ -69,4 +111,97 @@ def render_error_state(message, request_id=None, next_action=None):
         "Error",
         f"{message} {action_text}",
         meta_text=meta_text,
+    )
+
+
+def render_sentiment_cards(items):
+    columns = st.columns(len(items) or 1)
+    for column, item in zip(columns, items):
+        with column:
+            tone = item.get("tone") or "empty"
+            value = item.get("value")
+            count_text = item.get("count_text") or ""
+            display_value = "데이터 없음" if value in (None, "") else value
+            extra = f'<p class="playeat-page-caption">{count_text}</p>' if count_text else ""
+            st.markdown(
+                dedent(
+                    f"""
+                    <div class="playeat-sentiment-card {tone}">
+                        <p class="label">{item.get("label")}</p>
+                        <p class="value">{display_value}</p>
+                        {extra}
+                    </div>
+                    """
+                ),
+                unsafe_allow_html=True,
+            )
+
+
+def render_summary_strip(items):
+    item_html = []
+    for item in items:
+        value = item.get("value")
+        display_value = "데이터 없음" if value in (None, "") else value
+        item_html.append(
+            dedent(
+                f"""
+                <div class="playeat-summary-item">
+                    <p class="label">{item.get("label")}</p>
+                    <p class="value">{display_value}</p>
+                </div>
+                """
+            )
+        )
+    st.markdown(
+        f'<div class="playeat-summary-strip">{"".join(item_html)}</div>',
+        unsafe_allow_html=True,
+    )
+
+
+def render_donut_chart(title, points):
+    with st.container(border=True):
+        st.subheader(title)
+        valid_points = [
+            point
+            for point in points
+            if point.get("label") and (point.get("value") or 0) > 0
+        ]
+        if not valid_points:
+            render_empty_state(
+                "표시할 비율이 없습니다.",
+                next_action="0% 도넛으로 채우지 않습니다.",
+            )
+            return
+
+        import pandas as pd
+        import altair as alt
+
+        chart_df = pd.DataFrame(valid_points)
+        color_scale = alt.Scale(
+            domain=list(chart_df["label"]),
+            range=CHART_CATEGORY_COLORS[: len(chart_df)],
+        )
+        chart = (
+            alt.Chart(chart_df)
+            .mark_arc(innerRadius=48, outerRadius=80)
+            .encode(
+                theta=alt.Theta("value:Q"),
+                color=alt.Color("label:N", scale=color_scale, legend=alt.Legend(title=None)),
+                tooltip=["label", "value"],
+            )
+            .properties(height=220)
+        )
+        st.altair_chart(chart)
+
+
+def render_download_button(label, dataframe, file_name, key, width="stretch"):
+    csv_text = dataframe.to_csv(index=False).encode("utf-8-sig")
+    st.download_button(
+        label,
+        data=csv_text,
+        file_name=file_name,
+        mime="text/csv",
+        icon=":material/download:",
+        key=key,
+        width=width,
     )
