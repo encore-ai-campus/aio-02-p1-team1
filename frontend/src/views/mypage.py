@@ -362,4 +362,5 @@ def render_mypage():
 # 마이페이지 단독 실행
 # 팀 프로젝트에 합칠 때는 제거한다.
 # ----------------------------------------
-render_mypage()
+if __name__ == "__main__":
+    render_mypage()

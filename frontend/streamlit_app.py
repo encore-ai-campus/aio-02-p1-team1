@@ -1,5 +1,6 @@
 import streamlit as st
 
+from src.views.admin import render_admin
 from src.views.home import render_home
 from src.views.login import render_login
 from src.views.signup import render_signup
@@ -17,6 +18,7 @@ st.set_page_config(
     page_title="맛집친구",
     page_icon="🍴",
     layout="wide",
+    initial_sidebar_state="expanded",
 )
 
 
@@ -34,7 +36,7 @@ st.session_state.setdefault("page", "home")
 
 st.write("### 개발용 페이지 이동")
 
-col1, col2, col3, col4 = st.columns(4)
+col1, col2, col3, col4, col5 = st.columns(5)
 
 
 with col1:
@@ -61,6 +63,12 @@ with col4:
         st.rerun()
 
 
+with col5:
+    if st.button("관리자"):
+        st.session_state.page = "admin"
+        st.rerun()
+
+
 # =========================
 # 현재 페이지 출력
 # =========================
@@ -80,12 +88,13 @@ elif page == "signup":
 elif page == "mypage":
     render_mypage()
 
-    page = st.session_state.page
-
-
 elif page == "find_account":
     render_find_account()
 
 elif page == "login_success":
     render_login_success()
 
+elif page == "admin":
+    render_admin()
+    
+    page = st.session_state.page
