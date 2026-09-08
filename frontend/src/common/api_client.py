@@ -4,7 +4,7 @@ import httpx
 
 DEFAULT_FASTAPI_BASE_URL = "http://127.0.0.1:8000"
 API_PREFIX = "/api/v1"
-REQUEST_TIMEOUT_SECONDS = 10.0
+REQUEST_TIMEOUT_SECONDS = 30.0
 
 
 def get_fastapi_base_url():
@@ -44,6 +44,7 @@ def fetch_json(
     json_body=None,
     access_token=None,
     idempotency_key=None,
+    timeout=None,
 ):
     headers = {"Accept": "application/json"}
     if access_token:
@@ -60,7 +61,7 @@ def fetch_json(
             params=params,
             json=json_body,
             headers=headers,
-            timeout=REQUEST_TIMEOUT_SECONDS,
+            timeout=timeout or REQUEST_TIMEOUT_SECONDS,
         )
     except httpx.RequestError:
         return {
@@ -119,13 +120,20 @@ def get_json(path, params=None, access_token=None):
     )
 
 
-def post_json(path, json_body=None, access_token=None, idempotency_key=None):
+def post_json(
+    path,
+    json_body=None,
+    access_token=None,
+    idempotency_key=None,
+    timeout=None,
+):
     return fetch_json(
         "POST",
         path,
         json_body=json_body,
         access_token=access_token,
         idempotency_key=idempotency_key,
+        timeout=timeout,
     )
 
 

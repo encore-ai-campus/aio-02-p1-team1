@@ -113,7 +113,7 @@ AI가 내 취향과 상황에 맞는 맛집을 찾아드려요.
                         if data["user"]["profile_type"] == "0":
                             st.session_state.page = "admin"
                         else:
-                            st.session_state.page = "login_success"
+                            st.session_state.page = "home"
 
                         st.rerun()
 
