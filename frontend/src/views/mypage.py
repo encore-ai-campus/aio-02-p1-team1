@@ -1,7 +1,8 @@
 from pathlib import Path
 
 import streamlit as st
-# from app.db import supabase
+
+from src.common.api_client import get_json
 
 # ----------------------------------------
 # 페이지 기본 설정
@@ -27,187 +28,78 @@ def load_css(css_file: str) -> None:
 def render_mypage():
     """마이페이지 화면을 보여준다."""
 
-
+    # 마이페이지 CSS 적용하기
     load_css(Path(__file__).parent.parent / "styles" / "mypage.css")
+
     # ----------------------------------------
-    # 임시 사용자 데이터
-    # 나중에 DB/API 데이터로 변경한다.
+    # 로그인한 사용자 정보 가져오기
     # ----------------------------------------
-    user = {
-        "nickname": "맛집러버",
-        "user_id": "EXAM_ID",
-        "email": "example@email.com",
-    }
+    access_token = st.session_state.get("access_token")
 
-    # 최근 좋아요를 누른 식당 3개
-    recent_restaurants = [
-        {
-            "name": "강남 손칼국수",
-            "location": "서울 강남구 대치동",
-            "date": "2026.09.03",
-        },
-        {
-            "name": "싸다 김밥",
-            "location": "서울 서초구 서초동",
-            "date": "2026.09.02",
-        },
-        {
-            "name": "역삼파스타",
-            "location": "서울 강남구 역삼동",
-            "date": "2026.09.01",
-        },
-    ]
+    # 로그인 정보가 없으면 마이페이지를 보여주지 않는다.
+    if not access_token:
+        st.error("로그인이 필요합니다.")
+        return
 
-    # 최근 한 달 동안 자주 사용한 태그
-    favorite_tags = [
-        "#한식",
-        "#가성비",
-        "#혼밥",
-    ]
-
-    # 자주 선택한 음식 종류
-    favorite_categories = {
-        "한식": 40,
-        "일식": 25,
-        "양식": 15,
-        "중식": 10,
-        "카페/디저트": 7,
-        "기타": 3,
-    }
+    # 백엔드에서 현재 로그인한 사용자의 정보를 가져온다.
+    try:
+        user = get_json(
+            "/users/me",
+            access_token=access_token,
+        )
+    except Exception as error:
+        st.error(f"사용자 정보를 불러오지 못했습니다: {error}")
+        return
 
 
-# # ----------------------------------------
-# # 실제 마이페이지 데이터 가져오기
-# # ----------------------------------------
+    # ----------------------------------------
+    # 최근 좋아요 식당 가져오기
+    # ----------------------------------------
+    try:
+        likes_data = get_json(
+            "/users/me/likes",
+            access_token=access_token,
+        )
 
-# # 현재 로그인한 사용자의 PK
-# # profiles.id는 Supabase auth.users.id와 1:1로 연결된다.
-# profile_id = st.session_state["user_id"]
+        recent_restaurants = likes_data.get("restaurants", [])
 
+    except Exception as error:
+        st.error(f"좋아요 식당 정보를 불러오지 못했습니다: {error}")
+        recent_restaurants = []
 
-# # 사용자 프로필 가져오기
-# # 새 DB 구조에서는 profiles에 이메일 컬럼이 없고,
-# # 이메일은 Supabase Auth(auth.users)에서 관리한다.
-# profile_result = (
-#     supabase
-#     .table("profiles")
-#     .select("id, profile_login_id, profile_nickname")
-#     .eq("id", profile_id)
-#     .eq("profile_status", "1")
-#     .single()
-#     .execute()
-# )
-#
-# profile = profile_result.data
-#
-# # 로그인한 사용자의 이메일은 Supabase Auth에서 가져온다.
-# auth_user = supabase.auth.get_user()
-#
-# user = {
-#     "nickname": profile["profile_nickname"],
-#     "user_id": profile["profile_login_id"],
-#     "email": auth_user.user.email,
-# }
+    # ----------------------------------------
+    # 자주 사용하는 태그 가져오기
+    # ----------------------------------------
+    try:
+        tags_data = get_json(
+            "/users/me/tags",
+            access_token=access_token,
+        )
 
+        # 화면에 표시할 수 있도록 태그 앞에 # 붙이기
+        favorite_tags = [
+            f"#{tag}"
+            for tag in tags_data.get("tags", [])
+        ]
 
-# # 최근 좋아요를 누른 식당 3개 가져오기
-# # feedback_value = '3'이 좋아요이며, 최신순으로 조회한다.
-# feedback_result = (
-#     supabase
-#     .table("feedback")
-#     .select("restaurant_id, created_at")
-#     .eq("profile_id", profile_id)
-#     .eq("feedback_value", "3")
-#     .order("created_at", desc=True)
-#     .limit(3)
-#     .execute()
-# )
-#
-# recent_restaurants = []
-#
-# for feedback in feedback_result.data:
-#
-#     # feedback.restaurant_id와 연결된 식당 정보를 가져온다.
-#     restaurant_result = (
-#         supabase
-#         .table("restaurants")
-#         .select("id, name, address")
-#         .eq("id", feedback["restaurant_id"])
-#         .single()
-#         .execute()
-#     )
-#
-#     restaurant = restaurant_result.data
-#
-#     recent_restaurants.append(
-#         {
-#             "restaurant_id": restaurant["id"],
-#             "name": restaurant["name"],
-#             "location": restaurant["address"] or "주소 정보 없음",
-#             "date": feedback["created_at"][:10].replace("-", "."),
-#         }
-#     )
+    except Exception as error:
+        st.error(f"태그 정보를 불러오지 못했습니다: {error}")
+        favorite_tags = []
 
+    # ----------------------------------------
+    # 선호 음식 카테고리 비율 가져오기
+    # ----------------------------------------
+    try:
+        categories_data = get_json(
+            "/users/me/categories",
+            access_token=access_token,
+        )
 
-# # 최근 한 달 동안 자주 사용한 태그
-# # 현재 DB에는 '사용자가 어떤 태그를 검색/선택했는지'를 저장하는
-# # 사용자별 태그 사용 이력 테이블이 없으므로 아직 계산할 수 없다.
-# favorite_tags = []
+        favorite_categories = categories_data.get("categories", {})
 
-
-# # 자주 드시는 메뉴(선호 음식 카테고리 비율)
-# # 좋아요(feedback_value = '3')를 남긴 식당의 category_id를 기준으로
-# # 카테고리별 비율을 계산할 수 있다.
-# # 실제 서비스에서는 이 계산을 백엔드 API에서 처리하는 것을 권장한다.
-# liked_result = (
-#     supabase
-#     .table("feedback")
-#     .select("restaurant_id")
-#     .eq("profile_id", profile_id)
-#     .eq("feedback_value", "3")
-#     .execute()
-# )
-#
-# category_counts = {}
-# total_count = 0
-#
-# for feedback in liked_result.data:
-#     restaurant_result = (
-#         supabase
-#         .table("restaurants")
-#         .select("category_id")
-#         .eq("id", feedback["restaurant_id"])
-#         .single()
-#         .execute()
-#     )
-#
-#     category_id = restaurant_result.data.get("category_id")
-#
-#     if category_id is None:
-#         continue
-#
-#     category_result = (
-#         supabase
-#         .table("restaurant_categories")
-#         .select("name")
-#         .eq("id", category_id)
-#         .single()
-#         .execute()
-#     )
-#
-#     category_name = category_result.data["name"]
-#     category_counts[category_name] = category_counts.get(category_name, 0) + 1
-#     total_count += 1
-#
-# favorite_categories = {}
-#
-# if total_count > 0:
-#     favorite_categories = {
-#         category: round(count / total_count * 100)
-#         for category, count in category_counts.items()
-#     }
-
-
+    except Exception as error:
+        st.error(f"카테고리 정보를 불러오지 못했습니다: {error}")
+        favorite_categories = {}
 
     # ----------------------------------------
     # 상단 인사
@@ -286,12 +178,9 @@ def render_mypage():
                 f'<span class="restaurant-name">'
                 f'{restaurant["name"]}'
                 f'</span>'
-                f'<span class="restaurant-date">'
-                f'{restaurant["date"]}'
-                f'</span>'
                 '</div>'
                 f'<div class="restaurant-location">'
-                f'📍 {restaurant["location"]}'
+                f'📍 {restaurant.get("address") or "주소 정보 없음"}'
                 f'</div>'
                 '</div>'
             )
