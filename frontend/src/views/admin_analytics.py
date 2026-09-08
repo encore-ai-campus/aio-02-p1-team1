@@ -1,9 +1,10 @@
 from datetime import datetime, timedelta, timezone
+from uuid import uuid4
 
 import pandas as pd
 import streamlit as st
 
-from src.common.api_client import get_json
+from src.common.api_client import get_json, post_json
 from src.common.components import (
     CHART_DANGER,
     CHART_PRIMARY,
@@ -25,6 +26,10 @@ ADMIN_ANALYTICS_KEYS = {
     "result": "admin_analytics_result",
     "selected_log_id": "admin_analytics_selected_log_id",
     "log_page": "admin_analytics_log_page",
+    "cleaning_run_id": "admin_analytics_cleaning_run_id",
+    "cleaning_result": "admin_analytics_cleaning_result",
+    "summary_result": "admin_analytics_summary_result",
+    "selected_claim_text": "admin_analytics_selected_claim_text",
 }
 
 
@@ -60,6 +65,11 @@ def build_statistics_params(query):
         "period_end": format_datetime(query["period_end"]),
         "error_only": query["error_only"],
     }
+    cleaning_run_id = (
+        st.session_state.get(ADMIN_ANALYTICS_KEYS["cleaning_run_id"]) or ""
+    ).strip()
+    if cleaning_run_id:
+        params["cleaning_run_id"] = cleaning_run_id
 
     endpoint = (query.get("endpoint") or "").strip()
     if endpoint:
@@ -80,7 +90,28 @@ def build_api_log_params(query):
     params = build_statistics_params(query)
     params["page"] = query.get("page", 1)
     params["page_size"] = query.get("page_size", DEFAULT_PAGE_SIZE)
+    cleaning_run_id = (
+        st.session_state.get(ADMIN_ANALYTICS_KEYS["cleaning_run_id"]) or ""
+    ).strip()
+    if cleaning_run_id:
+        params["cleaning_run_id"] = cleaning_run_id
     return params
+
+
+def build_log_filters(query):
+    filters = {
+        "error_only": bool(query.get("error_only")),
+    }
+    endpoint = (query.get("endpoint") or "").strip()
+    if endpoint:
+        filters["endpoint"] = endpoint
+    http_method = query.get("http_method")
+    if http_method and http_method != "전체":
+        filters["http_method"] = http_method
+    status_code = query.get("status_code")
+    if status_code:
+        filters["status_code"] = int(status_code)
+    return filters
 
 
 def get_access_token():
@@ -202,6 +233,19 @@ def initialize_admin_analytics_state():
         st.session_state[ADMIN_ANALYTICS_KEYS["result"]] = None
         st.session_state[ADMIN_ANALYTICS_KEYS["selected_log_id"]] = None
         st.session_state[ADMIN_ANALYTICS_KEYS["log_page"]] = 1
+        st.session_state[ADMIN_ANALYTICS_KEYS["cleaning_run_id"]] = ""
+        st.session_state[ADMIN_ANALYTICS_KEYS["cleaning_result"]] = None
+        st.session_state[ADMIN_ANALYTICS_KEYS["summary_result"]] = None
+        st.session_state[ADMIN_ANALYTICS_KEYS["selected_claim_text"]] = None
+
+    st.session_state.setdefault(ADMIN_ANALYTICS_KEYS["cleaning_run_id"], "")
+    st.session_state.setdefault(ADMIN_ANALYTICS_KEYS["cleaning_result"], None)
+    st.session_state.setdefault(ADMIN_ANALYTICS_KEYS["summary_result"], None)
+    st.session_state.setdefault(ADMIN_ANALYTICS_KEYS["selected_claim_text"], None)
+    st.session_state.setdefault(
+        "admin_analytics_cleaning_run_id_input",
+        st.session_state.get(ADMIN_ANALYTICS_KEYS["cleaning_run_id"]) or "",
+    )
 
 
 def handle_filter_apply(
@@ -468,12 +512,277 @@ def render_operation_charts(usage_points, latency_points, error_points):
         )
 
 
-def render_summary_panel():
-    render_section_title("LLM 요약")
-    render_empty_state(
-        "요약은 정제 실행 ID가 연결된 뒤에 조회합니다.",
-        next_action="근거 없는 내용을 만들지 않습니다.",
+def split_summary_sections(summary_text):
+    if not summary_text:
+        return {
+            "현황": "판단할 데이터 부족",
+            "문제·이상 징후": "판단할 데이터 부족",
+            "확인할 조치": "판단할 데이터 부족",
+        }
+
+    sections = {
+        "현황": "",
+        "문제·이상 징후": "",
+        "확인할 조치": "",
+    }
+    current_name = "현황"
+    for line in summary_text.splitlines():
+        stripped_line = line.strip()
+        for section_name in sections:
+            if stripped_line.startswith(section_name):
+                current_name = section_name
+                remainder = stripped_line[len(section_name):].lstrip(" ::-")
+                if remainder:
+                    sections[current_name] += remainder + "\n"
+                stripped_line = ""
+                break
+        if stripped_line:
+            sections[current_name] += stripped_line + "\n"
+
+    for section_name, section_text in sections.items():
+        cleaned_text = section_text.strip()
+        sections[section_name] = cleaned_text or summary_text.strip()
+    return sections
+
+
+def create_cleaning_run(query):
+    return post_json(
+        "/admin/log-cleaning-runs",
+        json_body={
+            "period_start": format_datetime(query["period_start"]),
+            "period_end": format_datetime(query["period_end"]),
+        },
+        access_token=get_access_token(),
+        idempotency_key=str(uuid4()),
     )
+
+
+def create_log_summary(query, cleaning_run_id):
+    return post_json(
+        "/admin/log-summaries",
+        json_body={
+            "period_start": format_datetime(query["period_start"]),
+            "period_end": format_datetime(query["period_end"]),
+            "cleaning_run_id": cleaning_run_id,
+            "filters": build_log_filters(query),
+        },
+        access_token=get_access_token(),
+        idempotency_key=str(uuid4()),
+    )
+
+
+def get_log_summary(summary_id):
+    return get_json(
+        f"/admin/log-summaries/{summary_id}",
+        access_token=get_access_token(),
+    )
+
+
+def get_cleaning_run(run_id):
+    return get_json(
+        f"/admin/log-cleaning-runs/{run_id}",
+        access_token=get_access_token(),
+    )
+
+
+def get_api_log_detail(api_log_id):
+    return get_json(
+        f"/admin/api-logs/{api_log_id}",
+        access_token=get_access_token(),
+    )
+
+
+def render_evidence_table(evidence_items):
+    if not evidence_items:
+        render_empty_state(
+            "근거 로그가 없어 요약 주장을 사실로 표시하지 않습니다.",
+            next_action="판단할 데이터 부족으로 둡니다.",
+        )
+        return
+
+    evidence_rows = []
+    for item in evidence_items:
+        evidence_rows.append(
+            {
+                "로그 ID": item.get("api_log_id"),
+                "발생 시각": item.get("occurred_at"),
+                "Method": item.get("http_method"),
+                "엔드포인트": item.get("endpoint"),
+                "상태": item.get("status_code"),
+                "응답시간(ms)": item.get("response_time_ms"),
+                "에러 코드": item.get("error_code") or "-",
+                "연결 주장": item.get("claim_text") or "-",
+            }
+        )
+    selected = st.dataframe(
+        pd.DataFrame(evidence_rows),
+        hide_index=True,
+        on_select="rerun",
+        selection_mode="single-row",
+        key="admin_analytics_evidence_table",
+        column_config={"로그 ID": None},
+    )
+    selected_rows = selected.selection.rows if selected and selected.selection else []
+    if selected_rows:
+        selected_evidence = evidence_rows[selected_rows[0]]
+        st.session_state[ADMIN_ANALYTICS_KEYS["selected_log_id"]] = selected_evidence[
+            "로그 ID"
+        ]
+        claim_text = selected_evidence.get("연결 주장")
+        st.session_state[ADMIN_ANALYTICS_KEYS["selected_claim_text"]] = (
+            None if claim_text in (None, "-") else claim_text
+        )
+
+
+def render_summary_panel(query):
+    render_section_title("LLM 로그 요약")
+    st.caption("M5: 지정 기간의 이상 징후와 주요 이슈를 요약하고, 근거가 된 원본 로그를 함께 봅니다.")
+
+    current_cleaning_run_id = (
+        st.session_state.get(ADMIN_ANALYTICS_KEYS["cleaning_run_id"]) or ""
+    )
+    cleaning_run_id_input = st.text_input(
+        "정제 실행 ID",
+        key="admin_analytics_cleaning_run_id_input",
+        help="통계와 요약은 같은 정제 실행 ID를 사용합니다.",
+    )
+    run_column, summary_column = st.columns(2)
+    with run_column:
+        cleaning_clicked = st.button(
+            "정제 실행",
+            width="stretch",
+            key="admin_analytics_cleaning_button",
+        )
+    with summary_column:
+        summary_clicked = st.button(
+            "요약 실행",
+            type="primary",
+            width="stretch",
+            key="admin_analytics_summary_button",
+        )
+
+    if cleaning_clicked:
+        cleaning_result = create_cleaning_run(query)
+        st.session_state[ADMIN_ANALYTICS_KEYS["cleaning_result"]] = cleaning_result
+        if cleaning_result.get("ok"):
+            cleaning_data = cleaning_result.get("data") or {}
+            created_id = (
+                cleaning_data.get("id")
+                or cleaning_data.get("cleaning_run_id")
+                or cleaning_run_id_input
+            )
+            st.session_state[ADMIN_ANALYTICS_KEYS["cleaning_run_id"]] = str(
+                created_id or ""
+            )
+            st.session_state["admin_analytics_cleaning_run_id_input"] = str(
+                created_id or ""
+            )
+            st.session_state[ADMIN_ANALYTICS_KEYS["needs_fetch"]] = True
+        st.rerun()
+
+    if summary_clicked:
+        cleaning_run_id = (cleaning_run_id_input or current_cleaning_run_id).strip()
+        st.session_state[ADMIN_ANALYTICS_KEYS["cleaning_run_id"]] = cleaning_run_id
+        if not cleaning_run_id:
+            render_error_state(
+                "요약을 실행하려면 정제 실행 ID가 필요합니다.",
+                next_action="정제를 먼저 실행하거나 ID를 입력해 주세요.",
+            )
+        else:
+            summary_result = create_log_summary(query, cleaning_run_id)
+            st.session_state[ADMIN_ANALYTICS_KEYS["summary_result"]] = summary_result
+            st.rerun()
+
+    cleaning_result = st.session_state.get(ADMIN_ANALYTICS_KEYS["cleaning_result"])
+    if cleaning_result and not cleaning_result.get("ok"):
+        error_body = cleaning_result.get("error") or {}
+        render_error_state(
+            error_body.get("message") or "정제 실행에 실패했습니다.",
+            request_id=error_body.get("request_id"),
+        )
+    elif cleaning_result and cleaning_result.get("ok"):
+        cleaning_data = cleaning_result.get("data") or {}
+        cleaning_status = cleaning_data.get("status")
+        cleaning_id = (
+            cleaning_data.get("id") or cleaning_data.get("cleaning_run_id")
+        )
+        if cleaning_status == "running" and cleaning_id:
+            polled_cleaning = get_cleaning_run(cleaning_id)
+            if polled_cleaning.get("ok"):
+                cleaning_data = polled_cleaning.get("data") or cleaning_data
+                st.session_state[ADMIN_ANALYTICS_KEYS["cleaning_result"]] = (
+                    polled_cleaning
+                )
+                cleaning_status = cleaning_data.get("status")
+        if cleaning_status == "running":
+            render_loading_state("로그를 정제하고 있습니다.")
+        elif cleaning_status == "failed":
+            render_error_state("로그 정제가 실패했습니다.")
+        else:
+            st.caption(
+                "정제 실행 ID: "
+                f"{cleaning_id or current_cleaning_run_id or '-'} / "
+                f"상태: {cleaning_status or 'succeeded'}"
+            )
+
+    summary_result = st.session_state.get(ADMIN_ANALYTICS_KEYS["summary_result"])
+    if summary_result is None:
+        render_empty_state(
+            "아직 요약을 실행하지 않았습니다.",
+            next_action="같은 기간·필터로 정제한 뒤 요약을 실행해 주세요.",
+        )
+        return
+
+    if not summary_result.get("ok"):
+        error_body = summary_result.get("error") or {}
+        render_error_state(
+            error_body.get("message") or "요약을 불러오지 못했습니다.",
+            request_id=error_body.get("request_id"),
+        )
+        return
+
+    summary_data = summary_result.get("data") or {}
+    summary_id = summary_data.get("summary_id") or summary_data.get("id")
+    summary_status = summary_data.get("status")
+    if summary_status == "running" and summary_id:
+        polled_result = get_log_summary(summary_id)
+        if polled_result.get("ok"):
+            summary_data = polled_result.get("data") or summary_data
+            st.session_state[ADMIN_ANALYTICS_KEYS["summary_result"]] = polled_result
+            summary_status = summary_data.get("status")
+
+    if summary_status == "running":
+        render_loading_state("요약을 생성하고 있습니다.")
+        return
+    if summary_status == "failed":
+        render_error_state(
+            "요약 생성이 실패했습니다.",
+            next_action="부분 결과를 성공처럼 표시하지 않습니다.",
+        )
+        return
+
+    evidence_items = summary_data.get("evidence") or []
+    summary_text = summary_data.get("summary_text")
+    if not evidence_items or not summary_text:
+        render_empty_state(
+            "판단할 데이터 부족",
+            next_action="근거가 없는 내용은 사실로 표시하지 않습니다.",
+        )
+        return
+
+    sections = split_summary_sections(summary_text)
+    with st.container(border=True):
+        st.subheader("현황")
+        st.write(sections["현황"])
+        st.subheader("문제·이상 징후")
+        st.write(sections["문제·이상 징후"])
+        st.subheader("확인할 조치")
+        st.write(sections["확인할 조치"])
+        st.caption(
+            f"model: {summary_data.get('model_name') or '-'} / prompt: {summary_data.get('prompt_version') or '-'}"
+        )
+    render_section_title("요약 근거 로그")
+    render_evidence_table(evidence_items)
 
 
 def render_log_table(log_items, total_count):
@@ -521,12 +830,13 @@ def render_log_table(log_items, total_count):
         selected_index = selected_rows[0]
         selected_log_id = table_rows[selected_index]["로그 ID"]
         st.session_state[ADMIN_ANALYTICS_KEYS["selected_log_id"]] = selected_log_id
+        st.session_state[ADMIN_ANALYTICS_KEYS["selected_claim_text"]] = None
 
 
 def render_log_detail(log_items):
     selected_log_id = st.session_state.get(ADMIN_ANALYTICS_KEYS["selected_log_id"])
     if not selected_log_id:
-        st.caption("로그 행을 선택하면 상세를 표시합니다.")
+        st.caption("로그 행이나 요약 근거를 선택하면 상세를 표시합니다.")
         return
 
     selected_item = next(
@@ -537,12 +847,29 @@ def render_log_detail(log_items):
         ),
         None,
     )
+    detail_error = None
+    if selected_item is None:
+        detail_result = get_api_log_detail(selected_log_id)
+        if detail_result.get("ok"):
+            selected_item = detail_result.get("data")
+        else:
+            detail_error = detail_result.get("error") or {}
 
     with st.container(border=True):
         st.subheader("로그 상세")
+        if detail_error:
+            render_error_state(
+                detail_error.get("message") or "선택한 로그 상세를 불러오지 못했습니다.",
+                request_id=detail_error.get("request_id"),
+            )
+            return
         if selected_item is None:
             render_empty_state("선택한 로그 상세를 찾을 수 없습니다.")
             return
+
+        claim_text = st.session_state.get(ADMIN_ANALYTICS_KEYS["selected_claim_text"])
+        if claim_text:
+            st.caption(f"요약 연결 주장: {claim_text}")
 
         st.write(
             {
@@ -567,17 +894,6 @@ def render_product_metrics_tab():
     )
 
 
-def get_first_error(result):
-    for key in ("usage", "latency", "errors", "logs"):
-        item = result.get(key) or {}
-        if not item.get("ok"):
-            return item.get("error") or {
-                "message": "조회에 실패했습니다.",
-                "request_id": None,
-            }
-    return None
-
-
 def get_error_next_action(error_body):
     error_code = (error_body or {}).get("code")
     status_code = (error_body or {}).get("status")
@@ -592,7 +908,7 @@ def render_admin_analytics():
     initialize_admin_analytics_state()
     render_page_header(
         "검색정보분석",
-        "기간과 필터를 적용한 뒤 API 사용량, 응답시간, 에러율과 원본 로그를 확인합니다.",
+        "한 화면에서 사용량·응답시간·에러율 통계와 LLM 로그 요약을 기간·필터로 조회합니다.",
     )
 
     query = st.session_state[ADMIN_ANALYTICS_KEYS["applied_query"]]
@@ -606,34 +922,46 @@ def render_admin_analytics():
 
     render_applied_query_caption(query, result.get("fetched_at"))
 
-    first_error = get_first_error(result)
-    operation_tab, product_tab = st.tabs(["API 운영 지표", "제품 지표"])
+    usage_result = result.get("usage") or {}
+    latency_result = result.get("latency") or {}
+    error_result = result.get("errors") or {}
+    log_result = result.get("logs") or {}
 
-    with operation_tab:
-        if first_error:
-            render_error_state(
-                first_error.get("message") or "조회에 실패했습니다.",
-                request_id=first_error.get("request_id"),
-                next_action=get_error_next_action(first_error),
-            )
+    render_section_title("통계 분석")
+    st.caption("M3: 사용량, 응답시간, 에러율을 같은 기간·필터로 봅니다.")
+    stats_error = None
+    for item in (usage_result, latency_result, error_result):
+        if not item.get("ok"):
+            stats_error = item.get("error")
+            break
+    if stats_error:
+        render_error_state(
+            stats_error.get("message") or "통계를 불러오지 못했습니다.",
+            request_id=stats_error.get("request_id"),
+            next_action=get_error_next_action(stats_error),
+        )
+    else:
+        usage_points = list_metric_points(usage_result.get("data"))
+        latency_points = list_metric_points(latency_result.get("data"))
+        error_points = list_metric_points(error_result.get("data"))
+        log_items, _total_count = list_api_log_items(log_result.get("data"))
+        if not usage_points and not latency_points and not error_points:
+            render_empty_state("선택한 기간에 표시할 통계가 없습니다.")
         else:
-            usage_points = list_metric_points(result["usage"]["data"])
-            latency_points = list_metric_points(result["latency"]["data"])
-            error_points = list_metric_points(result["errors"]["data"])
-            log_items, total_count = list_api_log_items(result["logs"]["data"])
+            render_kpi_row(usage_points, log_items)
+            render_operation_charts(usage_points, latency_points, error_points)
 
-            if not usage_points and not log_items:
-                render_empty_state("선택한 기간에 표시할 운영 데이터가 없습니다.")
-            else:
-                render_kpi_row(usage_points, log_items)
-                render_operation_charts(
-                    usage_points,
-                    latency_points,
-                    error_points,
-                )
-                render_summary_panel()
-                render_log_table(log_items, total_count)
-                render_log_detail(log_items)
+    render_summary_panel(query)
 
-    with product_tab:
-        render_product_metrics_tab()
+    if not log_result.get("ok"):
+        error_body = log_result.get("error") or {}
+        render_error_state(
+            error_body.get("message") or "원본 로그를 불러오지 못했습니다.",
+            request_id=error_body.get("request_id"),
+            next_action=get_error_next_action(error_body),
+        )
+        return
+
+    log_items, total_count = list_api_log_items(log_result.get("data"))
+    render_log_table(log_items, total_count)
+    render_log_detail(log_items)
