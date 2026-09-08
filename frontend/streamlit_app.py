@@ -4,6 +4,9 @@ from src.views.home import render_home
 from src.views.login import render_login
 from src.views.signup import render_signup
 from src.views.mypage import render_mypage
+# 아직 구현되지 않은 화면
+# from src.views.find_account import render_find_account
+# from src.views.login_success import render_login_success
 
 
 # =========================
@@ -76,3 +79,13 @@ elif page == "signup":
 
 elif page == "mypage":
     render_mypage()
+
+    page = st.session_state.page
+
+
+elif page == "find_account":
+    render_find_account()
+
+elif page == "login_success":
+    render_login_success()
+
