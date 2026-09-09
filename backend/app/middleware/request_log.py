@@ -2,6 +2,7 @@ import json
 import time
 from uuid import UUID, uuid4
 
+from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse
 
@@ -109,6 +110,8 @@ class ApiRequestLogMiddleware(BaseHTTPMiddleware):
         try:
             try:
                 response = await call_next(request)
+            except StarletteHTTPException:
+                raise
             except Exception:
                 try:
                     collect_api_request_log(
