@@ -68,23 +68,23 @@ def render_mypage():
     # ----------------------------------------
     # 자주 사용하는 태그 가져오기
     # ----------------------------------------
-    tags_result = get_json(
-        "/users/me/tags",
-        access_token=access_token,
-    )
-    if tags_result.get("ok"):
-        tags_data = tags_result.get("data") or {}
-        favorite_tags = [
-            f"#{tag}"
-            for tag in tags_data.get("tags") or []
-        ]
-    else:
-        error_body = tags_result.get("error") or {}
-        st.error(
-            error_body.get("message") or "태그 정보를 불러오지 못했습니다."
+    try:
+        tags_result = get_json(
+            "/users/me/tags",
+            access_token=access_token,
         )
-        favorite_tags = []
-
+        if tags_result.get("ok"):
+            tags_data = tags_result.get("data") or {}
+            favorite_tags = [
+                f"#{tag}"
+                for tag in tags_data.get("tags") or []
+            ]
+        else:
+            error_body = tags_result.get("error") or {}
+            st.error(
+                error_body.get("message") or "태그 정보를 불러오지 못했습니다."
+            )
+            favorite_tags = []
 
     except Exception:
         user = {

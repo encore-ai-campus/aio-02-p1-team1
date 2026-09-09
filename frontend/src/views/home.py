@@ -40,7 +40,6 @@ def load_home_css():
 # =========================================================
 
 def render_navbar():
-
     st.html(
         f'<div class="playeat-navbar">'
         f'  <div class="playeat-logo-area">'
@@ -56,18 +55,26 @@ def render_navbar():
         f'    </div>'
         f'  </div>'
         f'  <div class="playeat-nav-menu">'
-        f'    <div class="nav-item active">'
+
+        # 맛집 추천
+        f'    <a href="?page=home" class="nav-item active">'
         f'      맛집 추천'
-        f'    </div>'
-        f'    <div class="nav-item">'
+        f'    </a>'
+
+        # 마이페이지
+        f'    <a href="?page=mypage" class="nav-item">'
         f'      마이페이지'
-        f'    </div>'
-        f'    <div class="logout-button">'
+        f'    </a>'
+
+        # 로그아웃
+        f'    <a href="?page=logout" class="logout-button">'
         f'      👤 로그아웃'
-        f'    </div>'
+        f'    </a>'
+
         f'  </div>'
         f'</div>'
     )
+
 
 # =========================================================
 # 채팅 화면
