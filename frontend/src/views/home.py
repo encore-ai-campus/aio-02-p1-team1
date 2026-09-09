@@ -175,45 +175,207 @@ def render_search():
 # =========================================================
 
 def render_filters():
+    """
+    각 그룹별 하나씩 선택 가능
 
-    categories = [
-        "🍲 한식",
-        "🍕 양식",
-        "🍱 일식",
-        "🥟 중식",
-        "☕ 카페",
-        "👤 혼밥",
-        "💰 가성비",
-        "🕒 오래된 맛집",
-    ]
+    restaurant_categories
+        한식 / 중식 / 일식 / 양식 / 기타
+
+    menu_types
+        매운거 / 든든한거 / 국물여부
+
+    price_levels
+        인당가격_하 / 인당가격_중 / 인당가격_상
+    """
 
     st.session_state.setdefault(
-        "home_category",
-        "🍲 한식",
+        "home_restaurant_category",
+        None,
     )
 
+    st.session_state.setdefault(
+        "home_menu_type",
+        None,
+    )
+
+    st.session_state.setdefault(
+        "home_price_level",
+        None,
+    )
+
+
+    # =====================================================
+    # 1. 음식 종류
+    # =====================================================
+
+    st.markdown("#### 음식 종류")
+
+    restaurant_categories = [
+        ("🍲 한식", "한식"),
+        ("🥟 중식", "중식"),
+        ("🍱 일식", "일식"),
+        ("🍕 양식", "양식"),
+        ("🍴 기타", "기타"),
+    ]
+
     cols = st.columns(
-        [1, 1, 1, 1, 1, 1, 1.2, 1.5],
+        5,
         gap="small",
     )
 
-    for col, category in zip(cols, categories):
-
+    for col, (label, value) in zip(
+        cols,
+        restaurant_categories,
+    ):
         with col:
-
             selected = (
-                st.session_state.home_category
-                == category
+                st.session_state[
+                    "home_restaurant_category"
+                ]
+                == value
             )
 
             if st.button(
-                category,
-                key=f"home_filter_{category}",
-                type="primary" if selected else "secondary",
+                label,
+                key=f"filter_restaurant_{value}",
+                type=(
+                    "primary"
+                    if selected
+                    else "secondary"
+                ),
                 use_container_width=True,
             ):
-                st.session_state.home_category = category
+                if selected:
+                    st.session_state[
+                        "home_restaurant_category"
+                    ] = None
+                else:
+                    st.session_state[
+                        "home_restaurant_category"
+                    ] = value
+
                 st.rerun()
+
+
+    # =====================================================
+    # 2. 음식 특징 + 가격대
+    # 한 줄에 출력
+    # =====================================================
+
+    st.markdown("#### 음식 특징 / 가격대")
+
+    menu_types = [
+        ("🔥 매운거", "매운거"),
+        ("🥩 든든한거", "든든한거"),
+        ("🍲 국물", "국물여부"),
+    ]
+
+    price_levels = [
+        ("💰 가성비", "인당가격_하"),
+        ("💵 중간쯤", "인당가격_중"),
+        ("💎 비싼거", "인당가격_상"),
+    ]
+
+    # 총 6개 버튼 한 줄
+    cols = st.columns(
+        6,
+        gap="small",
+    )
+
+
+    # -----------------------------
+    # 음식 특징 3개
+    # -----------------------------
+
+    for col, (label, value) in zip(
+        cols[:3],
+        menu_types,
+    ):
+        with col:
+            selected = (
+                st.session_state[
+                    "home_menu_type"
+                ]
+                == value
+            )
+
+            if st.button(
+                label,
+                key=f"filter_menu_{value}",
+                type=(
+                    "primary"
+                    if selected
+                    else "secondary"
+                ),
+                use_container_width=True,
+            ):
+                if selected:
+                    st.session_state[
+                        "home_menu_type"
+                    ] = None
+                else:
+                    st.session_state[
+                        "home_menu_type"
+                    ] = value
+
+                st.rerun()
+
+
+    # -----------------------------
+    # 가격대 3개
+    # -----------------------------
+
+    for col, (label, value) in zip(
+        cols[3:],
+        price_levels,
+    ):
+        with col:
+            selected = (
+                st.session_state[
+                    "home_price_level"
+                ]
+                == value
+            )
+
+            if st.button(
+                label,
+                key=f"filter_price_{value}",
+                type=(
+                    "primary"
+                    if selected
+                    else "secondary"
+                ),
+                use_container_width=True,
+            ):
+                if selected:
+                    st.session_state[
+                        "home_price_level"
+                    ] = None
+                else:
+                    st.session_state[
+                        "home_price_level"
+                    ] = value
+
+                st.rerun()
+
+
+    return {
+        "restaurant_category": (
+            st.session_state[
+                "home_restaurant_category"
+            ]
+        ),
+        "menu_type": (
+            st.session_state[
+                "home_menu_type"
+            ]
+        ),
+        "price_level": (
+            st.session_state[
+                "home_price_level"
+            ]
+        ),
+    }
 
 
 # =========================================================
@@ -256,17 +418,27 @@ def render_restaurant():
 # =========================================================
 
 def ensure_conversation():
-    # @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
-    access_token = st.session_state.get("access_token")
-    # access_token = '7bb1db51-e240-42da-8fab-86775c198491'
 
+    access_token = st.session_state.get(
+        "access_token"
+    )
+
+    # 로그인 토큰 확인
     if not access_token:
-        return
+        st.warning(
+            "access_token이 없습니다. 로그인 상태를 확인해주세요."
+        )
+        return False
 
-    # 이미 대화방이 있으면 새로 만들지 않음
-    if st.session_state.get("conversation_id"):
-        return
+    # 이미 대화방이 있으면 사용
+    conversation_id = st.session_state.get(
+        "conversation_id"
+    )
 
+    if conversation_id:
+        return True
+
+    # 대화방 생성
     result = post_json(
         "/conversations",
         json_body={
@@ -275,12 +447,26 @@ def ensure_conversation():
         access_token=access_token,
     )
 
+    # 생성 실패
     if not result["ok"]:
-        st.error(result["error"]["message"])
-        return
+        st.error(
+            f"대화방 생성 실패: {result['error']['message']}"
+        )
+        return False
 
-    # 여기서 저장
-    st.session_state["conversation_id"] = result["data"]["id"]
+    # 생성된 conversation_id 저장
+    conversation_id = result["data"]["id"]
+
+    st.session_state[
+        "conversation_id"
+    ] = conversation_id
+
+    # 새 대화방이므로 기존 로드 상태 초기화
+    st.session_state[
+        "chat_loaded"
+    ] = False
+
+    return True
 
 # =========================================================
 # 추천 이유
@@ -344,54 +530,60 @@ def render_home():
 
     render_navbar()
 
+
     # -----------------------------------------
     # 1. 대화방 확인 / 생성
     # -----------------------------------------
-    ensure_conversation()
+    conversation_ready = ensure_conversation()
 
     # -----------------------------------------
     # 2. 기존 메시지 조회
     # -----------------------------------------
-    load_chat_messages()
+    if conversation_ready:
+        load_chat_messages()
 
-    with st.container(key="home_content"):
+    with st.container(
+        key="home_content",
+    ):
 
         render_hero()
 
         keyword, search_clicked = render_search()
 
-        render_filters()
+        # 필터 선택값
+        filters = render_filters()
 
-        # --------------------------------------
-        # 기존 채팅 내역
-        # --------------------------------------
-        if st.session_state.get("chat_messages"):
-
+        # 기존 채팅
+        if st.session_state.get(
+            "chat_messages"
+        ):
             render_chat()
 
-        # --------------------------------------
-        # 검색 버튼 클릭
-        # --------------------------------------
+        # 검색 버튼
         if search_clicked:
 
             keyword = keyword.strip()
 
             if keyword:
 
-                st.session_state["search_keyword"] = keyword
+                st.session_state[
+                    "search_keyword"
+                ] = keyword
 
-                handle_chat(keyword)
+                handle_chat(
+                    keyword,
+                    filters,
+                )
 
             else:
-
                 st.warning(
                     "검색어를 입력해주세요."
                 )
 
-        # --------------------------------------
-        # 추천 결과 영역
-        # --------------------------------------
-        if st.session_state.get("chat_messages"):
+        # 추천 결과
+        if st.session_state.get(
+            "chat_messages"
+        ):
 
             render_restaurant()
 
@@ -434,9 +626,17 @@ def load_chat_messages():
     st.session_state.chat_loaded = True
 
 #채팅 전송
-def handle_chat(keyword: str):
-    conversation_id = st.session_state.get("conversation_id")
-    access_token = st.session_state.get("access_token")
+def handle_chat(
+    keyword: str,
+    filters: dict,
+):
+    conversation_id = st.session_state.get(
+        "conversation_id"
+    )
+
+    access_token = st.session_state.get(
+        "access_token"
+    )
 
     if not conversation_id:
         st.error("대화방 정보가 없습니다.")
@@ -451,7 +651,6 @@ def handle_chat(keyword: str):
         [],
     )
 
-    # 화면에 사용자 메시지 먼저 표시
     st.session_state.chat_messages.append(
         {
             "role": "user",
@@ -465,6 +664,15 @@ def handle_chat(keyword: str):
         f"/conversations/{conversation_id}/chat",
         json_body={
             "content": keyword,
+            "restaurant_category": filters.get(
+                "restaurant_category"
+            ),
+            "menu_type": filters.get(
+                "menu_type"
+            ),
+            "price_level": filters.get(
+                "price_level"
+            ),
         },
         access_token=access_token,
         timeout=60,
@@ -477,7 +685,9 @@ def handle_chat(keyword: str):
             assistant_text += event["text"]
 
         if event.get("done"):
-            st.session_state["last_message_id"] = event.get(
+            st.session_state[
+                "last_message_id"
+            ] = event.get(
                 "message_id"
             )
 
