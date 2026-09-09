@@ -6,6 +6,12 @@ from app.services.log_cleaning import (
     normalize_endpoint,
 )
 
+STATUS_CLASS_RANGES = {
+    "2xx": (200, 299),
+    "4xx": (400, 499),
+    "5xx": (500, 599),
+}
+
 
 def calculate_error_rate(error_count, request_count):
     if not request_count:
@@ -13,7 +19,46 @@ def calculate_error_rate(error_count, request_count):
     return error_count / request_count
 
 
-def filter_log_row(row, endpoint, http_method, status_code, error_only):
+def get_status_class_range(status_class):
+    return STATUS_CLASS_RANGES.get(status_class)
+
+
+def matches_status_filter(row_status, status_code=None, status_class=None, error_only=False):
+    try:
+        code = int(row_status)
+    except (TypeError, ValueError):
+        return False
+    if status_code is not None:
+        return code == int(status_code)
+    status_range = get_status_class_range(status_class)
+    if status_range:
+        return status_range[0] <= code <= status_range[1]
+    if error_only:
+        return is_error_status(code)
+    return True
+
+
+def apply_status_query_filters(query, status_code=None, status_class=None, error_only=False):
+    if status_code is not None:
+        return query.eq("status_code", int(status_code))
+    status_range = get_status_class_range(status_class)
+    if status_range:
+        return query.gte("status_code", status_range[0]).lte(
+            "status_code", status_range[1]
+        )
+    if error_only:
+        return query.gte("status_code", 400)
+    return query
+
+
+def filter_log_row(
+    row,
+    endpoint,
+    http_method,
+    status_code,
+    error_only,
+    status_class=None,
+):
     path = row.get("endpoint_path") or ""
     normalized = row.get("normalized_endpoint") or normalize_endpoint(path)
     if endpoint:
@@ -21,9 +66,12 @@ def filter_log_row(row, endpoint, http_method, status_code, error_only):
             return False
     if http_method and row.get("http_method") != http_method:
         return False
-    if status_code is not None and int(row.get("status_code") or 0) != int(status_code):
-        return False
-    if error_only and not is_error_status(row.get("status_code")):
+    if not matches_status_filter(
+        row.get("status_code"),
+        status_code=status_code,
+        status_class=status_class,
+        error_only=error_only,
+    ):
         return False
     return True
 
@@ -111,6 +159,7 @@ def list_statistics_from_raw_logs(
     http_method=None,
     status_code=None,
     error_only=False,
+    status_class=None,
 ):
     query = (
         supabase.table("api_request_logs")
@@ -120,15 +169,24 @@ def list_statistics_from_raw_logs(
     )
     if http_method:
         query = query.eq("http_method", http_method)
-    if status_code is not None:
-        query = query.eq("status_code", int(status_code))
+    query = apply_status_query_filters(
+        query,
+        status_code=status_code,
+        status_class=status_class,
+        error_only=error_only,
+    )
     result = query.execute()
     rows = []
     for row in result.data or []:
         normalized = normalize_endpoint(row.get("endpoint_path"))
         row["normalized_endpoint"] = normalized
         if not filter_log_row(
-            row, endpoint, http_method, status_code, error_only
+            row,
+            endpoint,
+            http_method,
+            status_code,
+            error_only,
+            status_class=status_class,
         ):
             continue
         rows.append(row)

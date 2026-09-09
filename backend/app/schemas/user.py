@@ -6,6 +6,12 @@ from uuid import UUID
 from pydantic import BaseModel, EmailStr, Field, field_validator
 
 
+class CurrentUser(BaseModel):
+    id: str
+    email: str
+    token: str
+
+
 # ── 사용자 ────────────────────────────────────────────────────────
 #1. UserCreate  — email(EmailStr), username(2~30자)
 class UserCreate(BaseModel):

@@ -9,16 +9,6 @@ from src.views.profile_edit import render_profile_edit
 # from app.db import supabase
 
 # ----------------------------------------
-# 페이지 기본 설정
-# ----------------------------------------
-st.set_page_config(
-    page_title="맛집친구 - 마이페이지",
-    page_icon="🍴",
-    layout="wide",
-)
-
-
-# ----------------------------------------
 # 마이페이지 디자인
 # ----------------------------------------
 def load_css(css_file: str) -> None:
@@ -46,39 +36,55 @@ def render_mypage():
         return
 
     # 백엔드에서 현재 로그인한 사용자의 정보를 가져온다.
-    try:
-        user = get_json(
-            "/users/me",
-            access_token=access_token,
+    user_result = get_json(
+        "/users/me",
+        access_token=access_token,
+    )
+    if not user_result.get("ok"):
+        error_body = user_result.get("error") or {}
+        st.error(
+            error_body.get("message") or "사용자 정보를 불러오지 못했습니다."
         )
-    except Exception as error:
-        st.error(f"사용자 정보를 불러오지 못했습니다: {error}")
         return
-
+    user = user_result.get("data") or {}
 
     # ----------------------------------------
     # 최근 좋아요 식당 가져오기
     # ----------------------------------------
-    try:
-        likes_data = get_json(
-            "/users/me/likes",
-            access_token=access_token,
+    likes_result = get_json(
+        "/users/me/likes",
+        access_token=access_token,
+    )
+    if likes_result.get("ok"):
+        likes_data = likes_result.get("data") or {}
+        recent_restaurants = likes_data.get("restaurants") or []
+    else:
+        error_body = likes_result.get("error") or {}
+        st.error(
+            error_body.get("message") or "좋아요 식당 정보를 불러오지 못했습니다."
         )
-
-        recent_restaurants = likes_data.get("restaurants", [])
-
-    except Exception as error:
-        st.error(f"좋아요 식당 정보를 불러오지 못했습니다: {error}")
         recent_restaurants = []
 
     # ----------------------------------------
     # 자주 사용하는 태그 가져오기
     # ----------------------------------------
-    try:
-        tags_data = get_json(
-            "/users/me/tags",
-            access_token=access_token,
+    tags_result = get_json(
+        "/users/me/tags",
+        access_token=access_token,
+    )
+    if tags_result.get("ok"):
+        tags_data = tags_result.get("data") or {}
+        favorite_tags = [
+            f"#{tag}"
+            for tag in tags_data.get("tags") or []
+        ]
+    else:
+        error_body = tags_result.get("error") or {}
+        st.error(
+            error_body.get("message") or "태그 정보를 불러오지 못했습니다."
         )
+        favorite_tags = []
+
 
     except Exception:
         user = {
@@ -278,16 +284,26 @@ def render_mypage():
     # ----------------------------------------
     # 선호 음식 카테고리 비율 가져오기
     # ----------------------------------------
-    try:
-        categories_data = get_json(
-            "/users/me/categories",
-            access_token=access_token,
+    categories_result = get_json(
+        "/users/me/categories",
+        access_token=access_token,
+    )
+    if categories_result.get("ok"):
+        categories_data = categories_result.get("data") or {}
+        category_items = categories_data.get("categories") or []
+        if isinstance(category_items, dict):
+            favorite_categories = category_items
+        else:
+            favorite_categories = {
+                item.get("name"): item.get("percentage")
+                for item in category_items
+                if item.get("name") is not None
+            }
+    else:
+        error_body = categories_result.get("error") or {}
+        st.error(
+            error_body.get("message") or "카테고리 정보를 불러오지 못했습니다."
         )
-
-        favorite_categories = categories_data.get("categories", {})
-
-    except Exception as error:
-        st.error(f"카테고리 정보를 불러오지 못했습니다: {error}")
         favorite_categories = {}
 
     # ----------------------------------------
@@ -298,7 +314,7 @@ def render_mypage():
     with title_col:
         st.markdown(
             f'<p class="mypage-title">'
-            f'안녕하세요, {user["nickname"]} 님! 👋'
+            f'안녕하세요, {user.get("nickname") or "회원"} 님! 👋'
             f'</p>'
             f'<p class="mypage-subtitle">'
             f'오늘도 맛있는 하루 보내세요.'

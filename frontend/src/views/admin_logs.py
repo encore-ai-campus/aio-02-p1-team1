@@ -26,16 +26,17 @@ from src.views.admin_analytics import (
 )
 
 LOG_SECTION_STATS = "통계분석 및 요약"
-LOG_SECTION_EVAL = "품질평가"
+LOG_SECTION_EVAL = "요약품질평가"
 LOG_SECTION_LOGS = "최근요청로그"
 LOG_SECTION_KEY = "admin_logs_section"
-LOG_SECTION_NAV_KEY = "admin_logs_section_nav_v8"
+LOG_SECTION_NAV_KEY = "admin_logs_section_nav_v9"
 LOGS_MENU_ACTIVE_KEY = "admin_logs_menu_active"
 LOG_SECTION_ALIASES = {
     "운영 KPI": LOG_SECTION_STATS,
     "통계분석": LOG_SECTION_STATS,
     "LLM 로그요약": LOG_SECTION_STATS,
     "조회조건": LOG_SECTION_STATS,
+    "품질평가": LOG_SECTION_EVAL,
 }
 LOG_SECTIONS = (
     LOG_SECTION_STATS,
@@ -116,13 +117,7 @@ def render_stats_error(stats_error):
 
 
 def render_stats_section(result):
-    cleaning_run_id = (
-        st.session_state.get(ADMIN_ANALYTICS_KEYS["cleaning_run_id"]) or ""
-    ).strip()
-    caption = "사용량, 응답시간, 에러율을 같은 기간·필터로 요약하고 차트로 봅니다."
-    if cleaning_run_id:
-        caption = f"정제 실행 기준 집계 (cleaning_run_id={cleaning_run_id}). {caption}"
-    render_section_title("통계분석 및 요약", caption)
+    render_section_title("통계분석 및 요약")
     stats_error, usage_points, latency_points, error_points, log_items, _log_result = (
         list_stats_context(result)
     )
@@ -178,7 +173,7 @@ def render_admin_logs():
     current_section = get_current_log_section()
     st.caption(
         "통계분석 및 요약에서 기간·필터, 사용량·지연·에러, LLM 요약을 한 화면에서 확인합니다. "
-        "정제 실행 후 요약 실행, 그다음 품질평가입니다."
+        "요약품질평가는 같은 요약 실행 다음 품질평가, 그다음 개선실험입니다."
     )
 
     query = st.session_state[ADMIN_ANALYTICS_KEYS["applied_query"]]
@@ -197,6 +192,6 @@ def render_admin_logs():
         render_stats_section(result)
         render_summary_panel(query)
     elif current_section == LOG_SECTION_EVAL:
-        render_evaluation_panel()
+        render_evaluation_panel(query)
     elif current_section == LOG_SECTION_LOGS:
         render_recent_logs_section(result)

@@ -1,9 +1,10 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 
 from fastapi.middleware.cors import CORSMiddleware
 from app.routers import auth, users
 
 
+from app.admin_auth import AdminAuthError
 from app.middleware.request_log import ApiRequestLogMiddleware
 from app.routers.admin_logs import router as admin_logs_router
 from app.routers.feedback import router as feedback_router
@@ -12,6 +13,11 @@ from app.routers.search_stats import router as search_stats_router
 from app.routers.conversations import conversation_router
 
 app = FastAPI(title="PlayEAT", version="0.2.0")
+
+
+@app.exception_handler(AdminAuthError)
+async def handle_admin_auth_error(request: Request, exc: AdminAuthError):
+    return exc.response
 
 app.add_middleware(ApiRequestLogMiddleware)
 app.add_middleware(

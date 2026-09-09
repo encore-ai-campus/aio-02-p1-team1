@@ -16,6 +16,7 @@ from app.schemas.api_log import (
 )
 from app.schemas.common import build_error_response, build_success_response
 from app.services.api_statistics import (
+    apply_status_query_filters,
     filter_log_row,
     list_statistics_from_cleaning_run,
     list_statistics_from_raw_logs,
@@ -132,6 +133,7 @@ def list_api_logs(
     endpoint: str | None = None,
     http_method: str | None = None,
     status_code: int | None = Query(default=None, ge=100, le=599),
+    status_class: str | None = Query(default=None, pattern="^(2xx|4xx|5xx)$"),
     error_only: bool = False,
     cleaning_run_id: UUID | None = None,
     page: int = Query(default=1, ge=1),
@@ -155,10 +157,12 @@ def list_api_logs(
         )
         if http_method:
             query = query.eq("http_method", http_method)
-        if status_code is not None:
-            query = query.eq("status_code", status_code)
-        if error_only:
-            query = query.gte("status_code", 400)
+        query = apply_status_query_filters(
+            query,
+            status_code=status_code,
+            status_class=status_class,
+            error_only=error_only,
+        )
         if cleaning_run_id:
             included_ids = list_included_log_ids(cleaning_run_id)
             if not included_ids:
@@ -179,7 +183,14 @@ def list_api_logs(
 
     rows = []
     for row in result.data or []:
-        if not filter_log_row(row, endpoint, http_method, status_code, error_only):
+        if not filter_log_row(
+            row,
+            endpoint,
+            http_method,
+            status_code,
+            error_only,
+            status_class=status_class,
+        ):
             continue
         rows.append(row)
 
@@ -287,6 +298,7 @@ def get_statistics_payload(
     status_code,
     error_only,
     cleaning_run_id,
+    status_class=None,
 ):
     period, error_response = parse_period(period_start, period_end)
     if error_response:
@@ -301,7 +313,7 @@ def get_statistics_payload(
                     "RESOURCE_NOT_FOUND",
                     "정제 실행을 찾을 수 없습니다.",
                 )
-            if status_code is None:
+            if status_code is None and not status_class:
                 points = list_statistics_from_cleaning_run(
                     cleaning_run_id,
                     endpoint=endpoint,
@@ -317,6 +329,7 @@ def get_statistics_payload(
                     http_method=http_method,
                     status_code=status_code,
                     error_only=error_only,
+                    status_class=status_class,
                 )
         else:
             points = list_statistics_from_raw_logs(
@@ -326,6 +339,7 @@ def get_statistics_payload(
                 http_method=http_method,
                 status_code=status_code,
                 error_only=error_only,
+                status_class=status_class,
             )
     except Exception:
         return build_error_response(
@@ -350,6 +364,7 @@ def get_usage_statistics(
     endpoint: str | None = None,
     http_method: str | None = None,
     status_code: int | None = Query(default=None, ge=100, le=599),
+    status_class: str | None = Query(default=None, pattern="^(2xx|4xx|5xx)$"),
     error_only: bool = False,
     cleaning_run_id: UUID | None = None,
 ):
@@ -361,6 +376,7 @@ def get_usage_statistics(
         status_code,
         error_only,
         cleaning_run_id,
+        status_class=status_class,
     )
 
 
@@ -371,6 +387,7 @@ def get_latency_statistics(
     endpoint: str | None = None,
     http_method: str | None = None,
     status_code: int | None = Query(default=None, ge=100, le=599),
+    status_class: str | None = Query(default=None, pattern="^(2xx|4xx|5xx)$"),
     error_only: bool = False,
     cleaning_run_id: UUID | None = None,
 ):
@@ -382,6 +399,7 @@ def get_latency_statistics(
         status_code,
         error_only,
         cleaning_run_id,
+        status_class=status_class,
     )
 
 
@@ -392,6 +410,7 @@ def get_error_statistics(
     endpoint: str | None = None,
     http_method: str | None = None,
     status_code: int | None = Query(default=None, ge=100, le=599),
+    status_class: str | None = Query(default=None, pattern="^(2xx|4xx|5xx)$"),
     error_only: bool = False,
     cleaning_run_id: UUID | None = None,
 ):
@@ -403,6 +422,7 @@ def get_error_statistics(
         status_code,
         error_only,
         cleaning_run_id,
+        status_class=status_class,
     )
 
 

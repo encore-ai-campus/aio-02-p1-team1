@@ -1,5 +1,5 @@
 -- 유저반응(feedback) 시드
--- 조장 스키마 + supabase_schema_prd_extend.sql 실행 후 사용한다.
+-- 기존 스키마 + supabase_schema_prd_extend.sql 실행 후 사용한다.
 --
 -- 먼저 할 일:
 --   Supabase Dashboard → Authentication → Users → Add user
