@@ -79,11 +79,13 @@ def render_mypage():
             "/users/me/tags",
             access_token=access_token,
         )
-    user = {
-        "nickname": "맛집러버",
-        "user_id": "EXAM_ID",
-        "email": "example@email.com",
-    }
+
+    except Exception:
+        user = {
+            "nickname": "맛집러버",
+            "user_id": "EXAM_ID",
+            "email": "example@email.com",
+        }
     # ----------------------------------------
     # 처음 마이페이지에 들어왔을 때는 기본 화면(main)을 보여준다.
     # 이미 mypage_view 값이 있으면 기존 값을 유지한다.
@@ -263,6 +265,7 @@ def render_mypage():
 #     }
 
         # 화면에 표시할 수 있도록 태그 앞에 # 붙이기
+    try:
         favorite_tags = [
             f"#{tag}"
             for tag in tags_data.get("tags", [])
