@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
+import uuid
 from uuid import UUID
-
 from fastapi import APIRouter, HTTPException, status, Depends
 
 from app.db import supabase, get_anon_client
