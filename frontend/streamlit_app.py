@@ -5,9 +5,6 @@ from src.views.home import render_home
 from src.views.login import render_login
 from src.views.signup import render_signup
 from src.views.mypage import render_mypage
-# 아직 구현되지 않은 화면
-# from src.views.find_account import render_find_account
-# from src.views.login_success import render_login_success
 
 
 # =========================
@@ -26,49 +23,68 @@ st.set_page_config(
 # 기본 페이지
 # =========================
 
-st.session_state.setdefault("page", "home")
+st.session_state.setdefault(
+    "page",
+    "home",
+)
 
 
 # =========================
-# 임시 페이지 이동 버튼
-# 개발할 때만 사용
+# URL query parameter 처리
+# 예: ?page=mypage
 # =========================
 
-# st.write("### 개발용 페이지 이동")
-
-# col1, col2, col3, col4, col5 = st.columns(5)
+query_page = st.query_params.get("page")
 
 
-# with col1:
-#     if st.button("홈"):
-#         st.session_state.page = "home"
-#         st.rerun()
+if query_page == "home":
+    st.session_state["page"] = "home"
+
+    st.query_params.clear()
+
+    st.rerun()
 
 
-# with col2:
-#     if st.button("로그인"):
-#         st.session_state.page = "login"
-#         st.rerun()
+elif query_page == "mypage":
+    st.session_state["page"] = "mypage"
+
+    st.query_params.clear()
+
+    st.rerun()
 
 
-# with col3:
-#     if st.button("회원가입"):
-#         st.session_state.page = "signup"
-#         st.rerun()
+elif query_page == "login":
+    st.session_state["page"] = "login"
+
+    st.query_params.clear()
+
+    st.rerun()
 
 
-# with col4:
-#     if st.button("마이페이지"):
-#         st.session_state.page = "mypage"
-#         st.rerun()
+elif query_page == "signup":
+    st.session_state["page"] = "signup"
+
+    st.query_params.clear()
+
+    st.rerun()
 
 
-# with col5:
-#     if st.button("관리자"):
-#         st.session_state.page = "admin"
-#         st.rerun()
+elif query_page == "admin":
+    st.session_state["page"] = "admin"
+
+    st.query_params.clear()
+
+    st.rerun()
 
 
+elif query_page == "logout":
+    st.session_state.clear()
+
+    st.session_state["page"] = "login"
+
+    st.query_params.clear()
+
+    st.rerun()
 # =========================
 # 현재 페이지 출력
 # =========================
@@ -97,4 +113,3 @@ elif page == "mypage":
 elif page == "admin":
     render_admin()
     
-    page = st.session_state.page
