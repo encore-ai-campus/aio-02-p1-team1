@@ -25,7 +25,7 @@ st.set_page_config(
 
 st.session_state.setdefault(
     "page",
-    "home",
+    "login",
 )
 
 
