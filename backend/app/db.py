@@ -17,20 +17,11 @@ if not SUPABASE_URL or not SUPABASE_SERVICE_ROLE_KEY:
 
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
 
-
-def get_supabase_anon_key():
-    return os.getenv("SUPABASE_PUBLISHABLE_KEY") or os.getenv("SUPABASE_ANON_KEY") or ""
-
-
+# 회원가입·로그인 요청에 사용할 새 연결 객체 만들기
 def create_auth_client() -> Client:
-    anon_key = get_supabase_anon_key()
-    if not anon_key:
-        raise RuntimeError(
-            "backend/.env에 SUPABASE_PUBLISHABLE_KEY를 넣으세요."
-        )
     return create_client(
         SUPABASE_URL,
-        anon_key,
+        os.environ["SUPABASE_PUBLISHABLE_KEY"],
         options=ClientOptions(
             persist_session=False,
             auto_refresh_token=False,

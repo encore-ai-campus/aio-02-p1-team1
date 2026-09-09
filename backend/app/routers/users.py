@@ -3,7 +3,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, status, Depends
 
-from app.db import supabase, create_auth_client
+from app.db import supabase, get_anon_client
 from app.deps import get_current_user
 from app.schemas.user import (
     CurrentUser,
@@ -45,7 +45,7 @@ def create_user(request: SignUpRequest):
         raise create_error_response(409, "NICKNAME_CONFLICT", "이미 사용 중인 닉네임입니다.")
 
     # 2. 인증 요청용 auth_client 생성
-    auth_client = create_auth_client()
+    auth_client = get_anon_client()
     new_user_id = None
 
     try:
