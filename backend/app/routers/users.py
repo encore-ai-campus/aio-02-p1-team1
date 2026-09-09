@@ -1,12 +1,12 @@
 from datetime import datetime, timezone
-import uuid
+from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, status, Depends
 
 from app.db import supabase, create_auth_client
 from app.deps import get_current_user
-from app.schemas import CurrentUser
 from app.schemas.user import (
+    CurrentUser,
     ResponseMeta,
     SignUpRequest,
     SignUpResponse,

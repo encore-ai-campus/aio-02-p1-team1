@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from datetime import datetime
 from typing import Generic, Literal, TypeVar
 from uuid import UUID
@@ -67,3 +68,11 @@ class NicknameUpdateRequest(BaseModel):
         if isinstance(value, str):
             return value.strip()
         return value
+
+
+# ── 토큰 받는 클래그 ────────────────────────────────────────────────────────
+@dataclass
+class CurrentUser:
+    id: str
+    email: str
+    token: str

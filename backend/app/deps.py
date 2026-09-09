@@ -3,8 +3,8 @@ import json
 from uuid import UUID
 
 from fastapi import Depends, HTTPException
-from app.db import get_anon_client
-from app.schemas import CurrentUser
+from app.db import create_auth_client
+from app.schemas.user import CurrentUser
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from app.redis_client import r
@@ -45,7 +45,7 @@ def get_current_user(
 
     # miss일 때 서버에서 가져오기
     # 수퍼베이스 서버에 보관중인 토큰과 비교해서 결과 가져옴
-    client = get_anon_client()
+    client = create_auth_client()
     try:
         result = client.auth.get_user(token)
     except Exception as e:
@@ -88,7 +88,7 @@ def require_own_conversation(
     없는 대화와 남의 대화를 구분하지 않고 똑같이 404 로 답한다.
     구분해서 알려주면 "그 대화는 존재한다"는 정보를 흘리게 된다.
     """
-    client = get_anon_client()
+    client = create_auth_client()
     client.postgrest.auth(current_user.token)
     owned = (
         client.table("conversations")

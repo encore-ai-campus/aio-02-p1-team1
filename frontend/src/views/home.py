@@ -3,6 +3,13 @@ from pathlib import Path
 import streamlit as st
 
 
+from src.common.api_client import (
+    get_json,
+    post_json,
+    stream_post,
+)
+
+
 # =========================================================
 # 경로 설정
 # =========================================================
@@ -238,6 +245,37 @@ def render_restaurant():
 
 
 # =========================================================
+# 대화방이 없으면 생성하는 함수
+# =========================================================
+
+def ensure_conversation():
+    # @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+    access_token = st.session_state.get("access_token")
+    # access_token = '7bb1db51-e240-42da-8fab-86775c198491'
+
+    if not access_token:
+        return
+
+    # 이미 대화방이 있으면 새로 만들지 않음
+    if st.session_state.get("conversation_id"):
+        return
+
+    result = post_json(
+        "/conversations",
+        json_body={
+            "title": "맛집 추천 대화",
+        },
+        access_token=access_token,
+    )
+
+    if not result["ok"]:
+        st.error(result["error"]["message"])
+        return
+
+    # 여기서 저장
+    st.session_state["conversation_id"] = result["data"]["id"]
+
+# =========================================================
 # 추천 이유
 # =========================================================
 
@@ -299,6 +337,16 @@ def render_home():
 
     render_navbar()
 
+    # -----------------------------------------
+    # 1. 대화방 확인 / 생성
+    # -----------------------------------------
+    ensure_conversation()
+
+    # -----------------------------------------
+    # 2. 기존 메시지 조회
+    # -----------------------------------------
+    load_chat_messages()
+
     with st.container(key="home_content"):
 
         render_hero()
@@ -307,49 +355,131 @@ def render_home():
 
         render_filters()
 
+        # --------------------------------------
+        # 기존 채팅 내역
+        # --------------------------------------
+        if st.session_state.get("chat_messages"):
+
+            render_chat()
+
+        # --------------------------------------
         # 검색 버튼 클릭
+        # --------------------------------------
         if search_clicked:
 
-            if keyword.strip():
+            keyword = keyword.strip()
 
-                keyword = keyword.strip()
+            if keyword:
 
-                st.session_state.search_keyword = keyword
+                st.session_state["search_keyword"] = keyword
 
-                # 채팅 목록이 없으면 생성
-                st.session_state.setdefault(
-                    "chat_messages",
-                    []
-                )
-
-                # 사용자 검색어 대화에 추가
-                st.session_state.chat_messages.append(
-                    {
-                        "role": "user",
-                        "content": keyword,
-                    }
-                )
-
-                # 임시 AI 응답
-                st.session_state.chat_messages.append(
-                    {
-                        "role": "assistant",
-                        "content": "조건에 맞는 맛집을 찾아볼게요!",
-                    }
-                )
+                handle_chat(keyword)
 
             else:
+
                 st.warning(
                     "검색어를 입력해주세요."
                 )
 
-        # 검색한 기록이 있을 때만 채팅창 표시
+        # --------------------------------------
+        # 추천 결과 영역
+        # --------------------------------------
         if st.session_state.get("chat_messages"):
-
-            render_chat()
 
             render_restaurant()
 
             render_recommendation_reason()
 
             render_feedback()
+
+
+# 기존 대화 불러오기
+def load_chat_messages():
+    conversation_id = st.session_state.get("conversation_id")
+    access_token = st.session_state.get("access_token")
+
+    if not conversation_id or not access_token:
+        return
+
+    if st.session_state.get("chat_loaded"):
+        return
+
+    result = get_json(
+        f"/conversations/{conversation_id}/messages",
+        access_token=access_token,
+    )
+
+    if not result["ok"]:
+        st.error(result["error"]["message"])
+        return
+
+    messages = result["data"] or []
+
+    st.session_state.chat_messages = [
+        {
+            "role": message["role"],
+            "content": message["content"],
+        }
+        for message in messages
+        if message["role"] in ("user", "assistant")
+    ]
+
+    st.session_state.chat_loaded = True
+
+#채팅 전송
+def handle_chat(keyword: str):
+    conversation_id = st.session_state.get("conversation_id")
+    access_token = st.session_state.get("access_token")
+
+    if not conversation_id:
+        st.error("대화방 정보가 없습니다.")
+        return
+
+    if not access_token:
+        st.error("로그인이 필요합니다.")
+        return
+
+    st.session_state.setdefault(
+        "chat_messages",
+        [],
+    )
+
+    # 화면에 사용자 메시지 먼저 표시
+    st.session_state.chat_messages.append(
+        {
+            "role": "user",
+            "content": keyword,
+        }
+    )
+
+    assistant_text = ""
+
+    for event in stream_post(
+        f"/conversations/{conversation_id}/chat",
+        json_body={
+            "content": keyword,
+        },
+        access_token=access_token,
+        timeout=60,
+    ):
+        if "error" in event:
+            st.error(event["error"])
+            return
+
+        if "text" in event:
+            assistant_text += event["text"]
+
+        if event.get("done"):
+            st.session_state["last_message_id"] = event.get(
+                "message_id"
+            )
+
+    if assistant_text:
+        st.session_state.chat_messages.append(
+            {
+                "role": "assistant",
+                "content": assistant_text,
+            }
+        )
+
+    st.rerun()
