@@ -67,3 +67,9 @@ class NicknameUpdateRequest(BaseModel):
         if isinstance(value, str):
             return value.strip()
         return value
+
+# 서버 내부에서 사용할 로그인 사용자 정보
+class CurrentUser(BaseModel):
+    id: str
+    email: EmailStr
+    token: str = Field(repr=False)
