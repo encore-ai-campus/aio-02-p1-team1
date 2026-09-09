@@ -18,7 +18,7 @@ if not SUPABASE_URL or not SUPABASE_SERVICE_ROLE_KEY:
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
 
 # 회원가입·로그인 요청에 사용할 새 연결 객체 만들기
-def get_anon_client() -> Client:
+def create_auth_client() -> Client:
     return create_client(
         SUPABASE_URL,
         os.environ["SUPABASE_PUBLISHABLE_KEY"],
@@ -27,3 +27,7 @@ def get_anon_client() -> Client:
             auto_refresh_token=False,
         ),
     )
+
+
+def get_anon_client() -> Client:
+    return create_auth_client()

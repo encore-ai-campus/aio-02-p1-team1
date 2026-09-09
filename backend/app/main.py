@@ -1,16 +1,23 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 
 from fastapi.middleware.cors import CORSMiddleware
 from app.routers import auth, users
 
 
+from app.admin_auth import AdminAuthError
 from app.middleware.request_log import ApiRequestLogMiddleware
 from app.routers.admin_logs import router as admin_logs_router
 from app.routers.feedback import router as feedback_router
 from app.routers.restaurants import router as restaurants_router
 from app.routers.search_stats import router as search_stats_router
+from app.routers.conversations import conversation_router
 
 app = FastAPI(title="PlayEAT", version="0.2.0")
+
+
+@app.exception_handler(AdminAuthError)
+async def handle_admin_auth_error(request: Request, exc: AdminAuthError):
+    return exc.response
 
 app.add_middleware(ApiRequestLogMiddleware)
 app.add_middleware(
@@ -31,18 +38,12 @@ app.include_router(admin_logs_router, prefix="/api/v1")
 
 app.include_router(users.auth_router, prefix="/api/v1")
 app.include_router(users.router, prefix="/api/v1")
+app.include_router(conversation_router,prefix="/api/v1",)
 
 
 @app.get("/health")
 def health():
     return {"status": "ok"}
 
-app.include_router(
-    auth.router,
-    prefix="/api/v1",
-)
-
-app.include_router(
-    users.router,
-    prefix="/api/v1",
-)
+app.include_router(auth.router,prefix="/api/v1")
+# app.include_router(users.router,prefix="/api/v1")

@@ -15,6 +15,8 @@ logger = logging.getLogger(__name__)
 
 def cache_get(key: str) -> str | None:
     """캐시에서 읽는다. 실패하면 None (= 캐시 없음)."""
+    if r is None:
+        return None
     try:
         return r.get(key)
     except RedisError as error:
@@ -24,6 +26,8 @@ def cache_get(key: str) -> str | None:
 
 def cache_set(key: str, value: str, ttl_seconds: int) -> None:
     """캐시에 쓴다. 실패해도 무시한다."""
+    if r is None:
+        return
     try:
         r.set(key, value, ex=ttl_seconds)
     except RedisError as error:
@@ -32,6 +36,8 @@ def cache_set(key: str, value: str, ttl_seconds: int) -> None:
 
 def cache_delete(key: str) -> None:
     """캐시를 지운다. 실패해도 무시한다."""
+    if r is None:
+        return
     try:
         r.delete(key)
     except RedisError as error:

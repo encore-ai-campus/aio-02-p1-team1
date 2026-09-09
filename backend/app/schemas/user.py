@@ -1,8 +1,15 @@
+from dataclasses import dataclass
 from datetime import datetime
 from typing import Generic, Literal, TypeVar
 from uuid import UUID
 
 from pydantic import BaseModel, EmailStr, Field, field_validator
+
+
+class CurrentUser(BaseModel):
+    id: str
+    email: str
+    token: str
 
 
 # ── 사용자 ────────────────────────────────────────────────────────
@@ -68,8 +75,10 @@ class NicknameUpdateRequest(BaseModel):
             return value.strip()
         return value
 
-# 서버 내부에서 사용할 로그인 사용자 정보
-class CurrentUser(BaseModel):
+
+# ── 토큰 받는 클래그 ────────────────────────────────────────────────────────
+@dataclass
+class CurrentUser:
     id: str
-    email: EmailStr
-    token: str = Field(repr=False)
+    email: str
+    token: str
