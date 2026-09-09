@@ -1,5 +1,9 @@
+import requests
 import streamlit as st
 from pathlib import Path
+
+
+FASTAPI_BASE_URL = "http://127.0.0.1:8000"
 
 
 def load_signup_css():
@@ -37,7 +41,6 @@ def render_signup():
         unsafe_allow_html=True,
     )
 
-
     # ==========================================
     # 2. 회원가입 안내 문구
     # ==========================================
@@ -59,11 +62,13 @@ def render_signup():
         unsafe_allow_html=True,
     )
 
-
     # ==========================================
     # 3. 회원 정보 입력
     # ==========================================
 
+    # 현재 UI 구조 유지를 위해 아이디 입력창은 남겨둡니다.
+    # 단, MVP 인증은 이메일 + 비밀번호이므로
+    # login_id는 회원가입 API로 전송하지 않습니다.
     login_id = st.text_input(
         "아이디",
         placeholder="아이디를 입력하세요",
@@ -101,7 +106,6 @@ def render_signup():
         key="signup_username",
     )
 
-
     # ==========================================
     # 4. 약관 동의
     # ==========================================
@@ -116,16 +120,8 @@ def render_signup():
         key="signup_privacy",
     )
 
-
     # ==========================================
-    # 5. 사용자 구분
-    # ==========================================
-
-    user_type = 2
-
-
-    # ==========================================
-    # 6. 회원가입 버튼
+    # 5. 회원가입 버튼
     # ==========================================
 
     if st.button(
@@ -133,6 +129,12 @@ def render_signup():
         use_container_width=True,
         key="signup_button",
     ):
+
+        # --------------------------------------
+        # 아이디 검증
+        # 현재 UI를 유지하기 위한 검증이며
+        # 실제 회원가입 API에는 보내지 않습니다.
+        # --------------------------------------
 
         login_id = login_id.strip()
 
@@ -144,6 +146,9 @@ def render_signup():
             st.error("아이디는 4~20자로 입력해주세요.")
             return
 
+        # --------------------------------------
+        # 이메일 검증
+        # --------------------------------------
 
         email = email.strip()
 
@@ -155,6 +160,9 @@ def render_signup():
             st.error("올바른 이메일 형식으로 입력해주세요.")
             return
 
+        # --------------------------------------
+        # 비밀번호 검증
+        # --------------------------------------
 
         if not password:
             st.error("비밀번호를 입력해주세요.")
@@ -164,6 +172,9 @@ def render_signup():
             st.error("비밀번호는 8자 이상 입력해주세요.")
             return
 
+        if len(password) > 128:
+            st.error("비밀번호는 128자 이하로 입력해주세요.")
+            return
 
         if not password_confirm:
             st.error("비밀번호 확인을 입력해주세요.")
@@ -173,6 +184,10 @@ def render_signup():
             st.error("비밀번호가 서로 다릅니다.")
             return
 
+        # --------------------------------------
+        # 닉네임 검증
+        # 백엔드 SignUpRequest 기준: 1~45자
+        # --------------------------------------
 
         username = username.strip()
 
@@ -180,10 +195,13 @@ def render_signup():
             st.error("닉네임을 입력해주세요.")
             return
 
-        if len(username) < 2 or len(username) > 30:
-            st.error("닉네임은 2~30자로 입력해주세요.")
+        if len(username) > 45:
+            st.error("닉네임은 45자 이하로 입력해주세요.")
             return
 
+        # --------------------------------------
+        # 약관 동의 검증
+        # --------------------------------------
 
         if not terms_agreed:
             st.error("이용약관에 동의해주세요.")
@@ -195,30 +213,88 @@ def render_signup():
             )
             return
 
+        # ======================================
+        # 6. FastAPI 회원가입 요청
+        # ======================================
+
+        try:
+            response = requests.post(
+                f"{FASTAPI_BASE_URL}/api/v1/auth/signups",
+                json={
+                    "email": email,
+                    "password": password,
+                    "nickname": username,
+                    "terms_agreed": terms_agreed,
+                    "privacy_agreed": privacy_agreed,
+                },
+                timeout=10,
+            )
+
+        except requests.exceptions.ConnectionError:
+            st.error(
+                "백엔드 서버에 연결할 수 없습니다. "
+                "FastAPI 서버가 실행 중인지 확인해주세요."
+            )
+            return
+
+        except requests.exceptions.Timeout:
+            st.error(
+                "회원가입 요청 시간이 초과되었습니다. "
+                "잠시 후 다시 시도해주세요."
+            )
+            return
+
+        except requests.exceptions.RequestException:
+            st.error(
+                "회원가입 요청 중 오류가 발생했습니다."
+            )
+            return
 
         # ======================================
-        # FastAPI 연결 예정
+        # 7. FastAPI 응답 처리
         # ======================================
 
-        # result = api(
-        #     "POST",
-        #     "/auth/signup",
-        #     json={
-        #         "login_id": login_id,
-        #         "email": email,
-        #         "password": password,
-        #         "username": username,
-        #         "user_type": user_type,
-        #     },
-        # )
+        if response.status_code == 201:
+            st.success(
+                "회원가입이 완료되었습니다. 로그인해주세요."
+            )
+            return
 
-        st.success(
-            "회원가입 입력값 확인이 완료되었습니다."
+        # 닉네임 또는 이메일 중복 등
+        if response.status_code == 409:
+            try:
+                data = response.json()
+
+                error = data.get("detail", {}).get("error", {})
+                message = error.get(
+                    "message",
+                    "이미 사용 중인 이메일 또는 닉네임입니다.",
+                )
+
+                st.error(message)
+
+            except (ValueError, AttributeError):
+                st.error(
+                    "이미 사용 중인 이메일 또는 닉네임입니다."
+                )
+
+            return
+
+        # FastAPI / Pydantic 입력값 검증 오류
+        if response.status_code == 422:
+            st.error(
+                "입력값을 다시 확인해주세요."
+            )
+            return
+
+        # 그 외 서버 오류
+        st.error(
+            "회원가입 처리 중 오류가 발생했습니다. "
+            "잠시 후 다시 시도해주세요."
         )
 
-
     # ==========================================
-    # 7. 로그인 화면 이동
+    # 8. 로그인 화면 이동
     # ==========================================
 
     st.markdown(

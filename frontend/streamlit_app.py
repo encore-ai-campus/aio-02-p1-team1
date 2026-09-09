@@ -70,7 +70,20 @@ elif query_page == "signup":
 
 
 elif query_page == "admin":
-    st.session_state["page"] = "admin"
+
+    user = st.session_state.get("user")
+
+    # 로그인하지 않은 사용자
+    if not user:
+        st.session_state["page"] = "login"
+
+    # 관리자가 아닌 사용자
+    elif user.get("profile_type") != "0":
+        st.session_state["page"] = "home"
+
+    # 관리자
+    else:
+        st.session_state["page"] = "admin"
 
     st.query_params.clear()
 
@@ -85,6 +98,8 @@ elif query_page == "logout":
     st.query_params.clear()
 
     st.rerun()
+
+
 # =========================
 # 현재 페이지 출력
 # =========================
@@ -95,21 +110,41 @@ page = st.session_state.page
 if page == "home":
     render_home()
 
+
 elif page == "login":
     render_login()
+
 
 elif page == "signup":
     render_signup()
 
+
 elif page == "mypage":
     render_mypage()
+
 
 # elif page == "find_account":
 #     render_find_account()
 
+
 # elif page == "login_success":
 #     render_login_success()
 
+
 elif page == "admin":
-    render_admin()
-    
+
+    user = st.session_state.get("user")
+
+    # 로그인하지 않은 경우
+    if not user:
+        st.session_state.page = "login"
+        st.rerun()
+
+    # 관리자가 아닌 경우
+    elif user.get("profile_type") != "0":
+        st.session_state.page = "home"
+        st.rerun()
+
+    # 관리자만 대시보드 출력
+    else:
+        render_admin()
