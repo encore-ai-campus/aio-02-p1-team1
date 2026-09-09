@@ -1,3 +1,4 @@
+import json
 import os
 
 import httpx
@@ -169,3 +170,56 @@ def list_resource_items(payload):
     )
     total_count = payload.get("total_count", payload.get("total", len(items)))
     return items, total_count
+
+
+# 채팅 스트리밍
+def stream_post(
+    path,
+    json_body=None,
+    access_token=None,
+    timeout=None,
+):
+    headers = {
+        "Accept": "text/event-stream",
+    }
+
+    if access_token:
+        headers["Authorization"] = f"Bearer {access_token}"
+
+    url = f"{get_fastapi_base_url()}{build_api_path(path)}"
+
+    try:
+        with httpx.stream(
+            "POST",
+            url,
+            json=json_body,
+            headers=headers,
+            timeout=timeout or REQUEST_TIMEOUT_SECONDS,
+        ) as response:
+
+            response.raise_for_status()
+
+            for line in response.iter_lines():
+
+                if not line:
+                    continue
+
+                if not line.startswith("data: "):
+                    continue
+
+                raw = line.removeprefix("data: ")
+
+                try:
+                    yield json.loads(raw)
+                except ValueError:
+                    continue
+
+    except httpx.RequestError as error:
+        yield {
+            "error": f"FastAPI 서버에 연결하지 못했습니다: {error}"
+        }
+
+    except httpx.HTTPStatusError as error:
+        yield {
+            "error": f"요청 실패: {error.response.status_code}"
+        }
