@@ -29,9 +29,10 @@ jobs:
 
       - name: Prepare site
         run: |
-          mkdir -p _site/api
+          mkdir -p _site/api _site/design
           db_html=$(find docs -maxdepth 1 -name '*DB*.html' | head -n 1)
           api_html=$(find docs -maxdepth 1 -name '*API*.html' | head -n 1)
+          design_html=$(find docs -maxdepth 1 -name '*화면설계서*.html' | head -n 1)
           if [ -z "$db_html" ]; then
             echo "DB definition HTML not found under docs/"
             exit 1
@@ -40,8 +41,13 @@ jobs:
             echo "API specification HTML not found under docs/"
             exit 1
           fi
+          if [ -z "$design_html" ]; then
+            echo "Screen design HTML not found under docs/"
+            exit 1
+          fi
           cp "$db_html" _site/index.html
           cp "$api_html" _site/api/index.html
+          cp "$design_html" _site/design/index.html
           touch _site/.nojekyll
 
       - name: Setup Pages
