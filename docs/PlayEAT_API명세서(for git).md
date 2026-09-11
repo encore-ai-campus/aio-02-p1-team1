@@ -37,6 +37,15 @@
 - Endpoint/Schema의 `description`은 문서에 반영합니다.
 - 성공 Response Schema가 `{}`이면 `스키마 미정의`로 표시합니다.
 
+
+### 표 읽는 방법
+
+- 한 API에 요청 항목이 여러 개 있으면 `↳` 행으로 이어집니다.
+- `요청 위치`는 Path / Query / Header / Body를 구분합니다.
+- Body는 Pydantic 모델명을 표시하며 세부 필드는 4번 모델 표에서 확인합니다.
+- `Response`는 OpenAPI의 2xx 응답과 Schema를 표시합니다.
+- `예외처리`는 OpenAPI에 명시된 비-2xx 응답만 표시합니다.
+
 ## 3. 공통 인증·응답 기준
 
 | 표시 | 의미 |
@@ -326,10 +335,3 @@
 
 ---
 
-### 표 읽는 방법
-
-- 한 API에 요청 항목이 여러 개 있으면 `↳` 행으로 이어집니다.
-- `요청 위치`는 Path / Query / Header / Body를 구분합니다.
-- Body는 Pydantic 모델명을 표시하며 세부 필드는 4번 모델 표에서 확인합니다.
-- `Response`는 OpenAPI의 2xx 응답과 Schema를 표시합니다.
-- `예외처리`는 OpenAPI에 명시된 비-2xx 응답만 표시합니다.
