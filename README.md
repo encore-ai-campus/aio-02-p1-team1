@@ -258,7 +258,7 @@ PlayEAT의 화면 구조와 UI 디자인은 Figma를 기반으로 설계했습�
 
 | 문서 | 설명 |
 | --- | --- |
-| [PRD](https://github.com/encore-ai-campus/aio-02-p1-team1/blob/main/docs/PlayEAT_PRD.md) | 프로젝트 배경, 목표, 서비스 및 기능 요구사항 |
+| [PRD](https://github.com/encore-ai-campus/aio-02-p1-team1/blob/main/docs/PlayEAT_PRD_개정본.md) | 프로젝트 배경, 목표, 서비스 및 기능 요구사항 |
 | [WBS](https://github.com/encore-ai-campus/aio-02-p1-team1/blob/main/docs/PlayEAT_WBS.md) | 프로젝트 일정, 작업 항목 및 역할 분담 |
 | [API 설계서](https://encore-ai-campus.github.io/aio-02-p1-team1/api/) | Backend API Endpoint 및 Request / Response 정의 |
 | [DB 정의서](https://encore-ai-campus.github.io/aio-02-p1-team1/) | 데이터베이스 테이블 및 컬럼 정의 |
