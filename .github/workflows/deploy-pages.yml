@@ -1,4 +1,4 @@
-name: Deploy DB spec to GitHub Pages
+name: Deploy docs to GitHub Pages
 
 on:
   push:
@@ -29,13 +29,19 @@ jobs:
 
       - name: Prepare site
         run: |
-          mkdir -p _site
-          html=$(find docs -maxdepth 1 -name '*DB*.html' | head -n 1)
-          if [ -z "$html" ]; then
+          mkdir -p _site/api
+          db_html=$(find docs -maxdepth 1 -name '*DB*.html' | head -n 1)
+          api_html=$(find docs -maxdepth 1 -name '*API*.html' | head -n 1)
+          if [ -z "$db_html" ]; then
             echo "DB definition HTML not found under docs/"
             exit 1
           fi
-          cp "$html" _site/index.html
+          if [ -z "$api_html" ]; then
+            echo "API specification HTML not found under docs/"
+            exit 1
+          fi
+          cp "$db_html" _site/index.html
+          cp "$api_html" _site/api/index.html
           touch _site/.nojekyll
 
       - name: Setup Pages

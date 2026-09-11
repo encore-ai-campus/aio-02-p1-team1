@@ -1,0 +1,2572 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PlayEAT — API 명세서</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#f7f7fb;
+    --surface:#ffffff;
+    --surface-2:#f3f1fb;
+    --ink:#1e1b2e;
+    --ink-soft:#57536b;
+    --ink-faint:#8a86a0;
+    --border:#e3e0f0;
+    --border-soft:#ecebf5;
+    --accent:#6b7280;
+    --accent-ink:#484c56;
+    --accent-soft:rgba(107,114,128,.14);
+    --accent-soft-2:rgba(107,114,128,.07);
+    --pk:#c0392b;
+    --pk-bg:#fdecea;
+    --fk:#1d6fa5;
+    --fk-bg:#e8f2fb;
+    --u:#8a5a00;
+    --u-bg:#fdf3dd;
+    --n:#b3261e;
+    --n-bg:#fbe9e8;
+    --y:#3a7d44;
+    --y-bg:#e9f6ea;
+    --ok:#2e7d32;
+    --ok-bg:#e7f5e8;
+    --code-bg:#f5f3fc;
+    --shadow:0 1px 2px rgba(30,27,46,.04), 0 8px 24px -12px rgba(30,27,46,.12);
+  }
+  /* 평가자마다 다르게 보이지 않도록 시스템 다크모드 자동전환은 사용하지 않는다.
+     data-theme="dark"를 명시적으로 지정했을 때만 다크 팔레트를 적용한다. */
+  :root[data-theme="dark"]{
+      --bg:#131120;
+      --surface:#1b1830;
+      --surface-2:#211d3a;
+      --ink:#eeecfb;
+      --ink-soft:#b8b3d6;
+      --ink-faint:#847fa8;
+      --border:#332d54;
+      --border-soft:#292446;
+      --accent:#8b909c;
+      --accent-ink:#c7cad2;
+      --accent-soft:rgba(139,144,156,.22);
+      --accent-soft-2:rgba(139,144,156,.12);
+      --pk:#ff8a7a;
+      --pk-bg:#3a1f22;
+      --fk:#7cc0f5;
+      --fk-bg:#132a3a;
+      --u:#f0c46a;
+      --u-bg:#3a2f11;
+      --n:#ff9b93;
+      --n-bg:#3a1c1c;
+      --y:#8fd39a;
+      --y-bg:#173420;
+      --ok:#8fd39a;
+      --ok-bg:#15301c;
+      --code-bg:#211d3a;
+      --shadow:0 1px 2px rgba(0,0,0,.3), 0 8px 24px -12px rgba(0,0,0,.5);
+  }
+
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--ink);
+    font-family:'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic',sans-serif;
+    font-size:15px;
+    line-height:1.65;
+    -webkit-font-smoothing:antialiased;
+  }
+  .mono{font-family:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-size:.86em;}
+
+  /* ---------- header ---------- */
+  .topbar{
+    position:sticky; top:0; z-index:50;
+    background:color-mix(in srgb, var(--surface) 92%, transparent);
+    backdrop-filter:blur(10px);
+    border-bottom:1px solid var(--border);
+  }
+  .topbar-inner{
+    max-width:1180px; margin:0 auto; padding:10px 20px;
+    display:flex; align-items:center; gap:14px; justify-content:space-between;
+  }
+  .topbar-title{font-weight:700; font-size:14px; color:var(--ink); white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+  .topbar-title small{display:block; font-weight:500; color:var(--ink-faint); font-size:11px; margin-top:1px}
+  .topbar-nav{display:flex; gap:2px; flex-wrap:wrap; justify-content:flex-end}
+  .topbar-nav a{
+    font-size:12.5px; padding:6px 10px; border-radius:999px; color:var(--ink-soft);
+    text-decoration:none; white-space:nowrap; transition:background .15s, color .15s;
+  }
+  .topbar-nav a:hover{background:var(--accent-soft); color:var(--accent-ink)}
+
+  .hero{
+    max-width:1180px; margin:0 auto; padding:56px 20px 28px;
+  }
+  .hero-eyebrow{
+    display:inline-flex; align-items:center; gap:8px;
+    font-size:12px; font-weight:700; letter-spacing:.04em; color:var(--accent-ink);
+    background:var(--accent-soft); padding:5px 12px; border-radius:999px; margin-bottom:18px;
+  }
+  .hero h1{
+    font-size:clamp(26px,4vw,38px); line-height:1.3; margin:0 0 14px; font-weight:900; letter-spacing:-.01em;
+  }
+  .hero-sub{color:var(--ink-soft); font-size:15.5px; max-width:62ch; margin:0 0 26px}
+  .meta-grid{
+    display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:1px;
+    background:var(--border); border:1px solid var(--border); border-radius:14px; overflow:hidden;
+  }
+  .meta-cell{background:var(--surface); padding:14px 16px}
+  .meta-cell .k{font-size:11.5px; color:var(--ink-faint); font-weight:600; margin-bottom:4px; letter-spacing:.02em}
+  .meta-cell .v{font-size:14px; font-weight:600; color:var(--ink)}
+
+  /* ---------- criteria box (두괄식 요약) ---------- */
+  .criteria{
+    max-width:1180px; margin:0 auto; padding:0 20px 8px;
+  }
+  .criteria-box{
+    border:1.5px solid var(--accent); border-radius:18px; background:var(--surface);
+    padding:28px 28px 22px; box-shadow:var(--shadow); position:relative; overflow:hidden;
+  }
+  .criteria-box::before{
+    content:""; position:absolute; inset:0 0 auto 0; height:5px;
+    background:linear-gradient(90deg,var(--accent),#a6abb5);
+  }
+  .criteria-head{display:flex; align-items:baseline; gap:10px; margin-bottom:6px; flex-wrap:wrap}
+  .criteria-head h2{font-size:19px; margin:0; font-weight:800}
+  .criteria-head .tag{font-size:11.5px; font-weight:700; color:var(--accent-ink); background:var(--accent-soft); padding:3px 10px; border-radius:999px}
+  .criteria-lead{color:var(--ink-soft); font-size:14px; margin:0 0 20px}
+  .criteria-list{display:grid; gap:14px}
+  .criterion{
+    display:grid; grid-template-columns:auto 1fr; gap:14px; align-items:start;
+    padding:16px 16px 16px 14px; border:1px solid var(--border-soft); border-radius:14px; background:var(--surface-2);
+  }
+  .criterion .num{
+    width:30px; height:30px; border-radius:9px; background:var(--accent); color:#fff; font-weight:800;
+    display:flex; align-items:center; justify-content:center; font-size:14px; flex:none;
+  }
+  .criterion h3{margin:0 0 6px; font-size:14.5px; font-weight:700}
+  .criterion p{margin:0; color:var(--ink-soft); font-size:13.6px; line-height:1.7}
+  .criterion p b{color:var(--ink); font-weight:700}
+  .criterion .check{
+    display:inline-flex; align-items:center; gap:5px; font-size:11.5px; font-weight:700;
+    color:var(--ok); background:var(--ok-bg); padding:2px 9px; border-radius:999px; margin-bottom:8px;
+  }
+  .criterion .lead{margin:0 0 10px; font-size:14px; color:var(--ink); font-weight:700; line-height:1.55}
+  ul.crit-list{list-style:none; margin:0; padding:0; display:grid; gap:6px}
+  ul.crit-list li{
+    display:grid; grid-template-columns:auto 1fr; gap:8px; align-items:baseline;
+    font-size:13px; color:var(--ink-soft); line-height:1.6;
+  }
+  ul.crit-list li .lb{
+    flex:none; font-size:11px; font-weight:700; color:var(--accent-ink); background:var(--accent-soft);
+    padding:1px 8px; border-radius:6px; white-space:nowrap; align-self:start; margin-top:2px;
+    text-decoration:none; transition:background .15s;
+  }
+  a.lb:hover{background:var(--accent)}
+  a.lb:hover{color:#fff}
+  ul.crit-list li span.tx b{color:var(--ink); font-weight:600}
+  .ref-tag{
+    display:inline-block; margin-left:5px; font-size:10.5px; font-weight:700; color:var(--ink-faint);
+    background:var(--surface); border:1px solid var(--border); border-radius:5px; padding:0 6px; white-space:nowrap;
+  }
+  .criteria-foot{
+    margin:18px 0 0; padding-top:14px; border-top:1px dashed var(--border);
+    font-size:12.3px; color:var(--ink-faint);
+  }
+  .criteria-foot b{color:var(--ink-soft)}
+
+  /* ---------- TOC ---------- */
+  .toc-wrap{max-width:1180px; margin:0 auto; padding:26px 20px 10px}
+  .toc-title{font-size:12px; font-weight:700; color:var(--ink-faint); letter-spacing:.06em; margin:0 0 10px}
+  .toc-grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:10px}
+  .toc-item{
+    display:flex; align-items:center; gap:10px; padding:12px 14px; border-radius:12px;
+    background:var(--surface); border:1px solid var(--border); text-decoration:none; color:var(--ink);
+    transition:border-color .15s, transform .15s;
+  }
+  .toc-item:hover{border-color:var(--accent); transform:translateX(2px)}
+  .toc-num{
+    width:26px; height:26px; border-radius:8px; background:var(--accent-soft); color:var(--accent-ink);
+    font-size:12px; font-weight:800; display:flex; align-items:center; justify-content:center; flex:none;
+  }
+  .toc-item .t{font-size:13.5px; font-weight:600}
+  .toc-item .d{font-size:11.5px; color:var(--ink-faint); margin-top:1px}
+
+  /* ---------- content ---------- */
+  main{max-width:1180px; margin:0 auto; padding:10px 20px 100px}
+  section.doc-section{padding-top:52px; margin-top:-12px; scroll-margin-top:66px}
+  .sec-head{display:flex; align-items:baseline; gap:12px; margin-bottom:6px; flex-wrap:wrap}
+  .sec-num{
+    font-family:'JetBrains Mono',monospace; font-size:13px; font-weight:700; color:#fff;
+    background:var(--accent); border-radius:8px; padding:3px 9px;
+  }
+  .sec-head h2{font-size:23px; margin:0; font-weight:800; letter-spacing:-.01em}
+  .sec-desc{color:var(--ink-soft); font-size:13.8px; margin:6px 0 22px; max-width:78ch}
+  .sub-h{
+    font-size:15.5px; font-weight:700; margin:26px 0 12px; padding-bottom:8px;
+    border-bottom:2px solid var(--border); color:var(--ink); display:flex; align-items:center; gap:10px; flex-wrap:wrap;
+    scroll-margin-top:66px;
+  }
+  .erd-figure{scroll-margin-top:66px}
+  .count-chip{font-size:11px; font-weight:600; color:var(--ink-faint); background:var(--surface-2); padding:2px 9px; border-radius:999px; border:1px solid var(--border-soft)}
+
+  hr.rule{border:none; border-top:1px solid var(--border); margin:48px 0}
+
+  /* ---------- note / blockquote box ---------- */
+  .note{
+    display:flex; gap:12px; background:var(--accent-soft-2); border:1px solid var(--border);
+    border-left:4px solid var(--accent); border-radius:10px; padding:14px 16px; margin:16px 0; font-size:13.5px; color:var(--ink-soft);
+  }
+  .note .ic{flex:none; font-size:16px; line-height:1.4}
+  .note b{color:var(--ink)}
+  .note.legend{background:var(--surface); border-left-color:var(--ink-faint)}
+
+  /* ---------- tables ---------- */
+  .table-wrap{overflow-x:auto; border:1px solid var(--border); border-radius:12px; box-shadow:var(--shadow); margin-bottom:18px}
+  table.def-table{border-collapse:collapse; width:100%; min-width:560px; font-size:13.8px; background:var(--surface)}
+  table.def-table thead th{
+    background:var(--accent); color:#fff; text-align:left; font-weight:700; font-size:12.3px;
+    padding:10px 12px; white-space:nowrap; position:sticky; top:0;
+  }
+  table.def-table tbody td{padding:10px 12px; border-top:1px solid var(--border-soft); vertical-align:top; line-height:1.55}
+  table.def-table tbody tr:nth-child(even){background:var(--surface-2)}
+  table.def-table tbody tr:hover{background:var(--accent-soft)}
+  td.ent{font-weight:700; color:var(--accent-ink)}
+  td.ent.cont{color:transparent; user-select:none}
+  tr.ent-first td.ent{border-top:2px solid var(--border)}
+  td.colname{font-weight:600}
+  td.typ{color:var(--ink-soft)}
+  td.cons{color:var(--ink-soft); font-size:12.6px}
+  tr.constraint-row{background:var(--u-bg) !important}
+  .const-tag{font-weight:700; color:var(--u)}
+  tr.unique-row{background:var(--u-bg) !important}
+  a.tbl-link{color:var(--accent-ink); text-decoration:none; border-bottom:1px dashed var(--accent)}
+  a.tbl-link:hover{border-bottom-style:solid}
+
+  /* 1-2 핵심 속성: 행 단위 줄무늬 대신 "엔티티 블록" 단위로 음영을 묶어 그룹 경계를 명확히 함 */
+  table.attr-table tbody tr:nth-child(even){background:transparent}
+  table.attr-table tbody tr.grp-b{background:var(--surface-2)}
+  table.attr-table tbody tr.grp-b:hover, table.attr-table tbody tr.grp-a:hover{background:var(--accent-soft)}
+
+  /* 컬럼에 인덱스가 걸려 있음을 표시하는 작은 칩 — 4장 인덱스 정의와 역방향으로 연결 */
+  .idx-chip{
+    display:inline-flex; align-items:center; gap:3px; margin-left:6px; font-size:9.5px; font-weight:700;
+    letter-spacing:.02em; color:var(--fk); background:var(--fk-bg); border-radius:5px; padding:1px 5px;
+    vertical-align:middle; font-family:'Noto Sans KR',sans-serif;
+  }
+  .idx-chip.uniq{color:var(--u); background:var(--u-bg)}
+
+  .badge{display:inline-block; font-size:11px; font-weight:700; padding:2px 8px; border-radius:6px; font-family:'JetBrains Mono',monospace}
+  .badge-pk{color:var(--pk); background:var(--pk-bg)}
+  .badge-fk{color:var(--fk); background:var(--fk-bg)}
+  .badge-u{color:var(--u); background:var(--u-bg)}
+  .badge-plain{color:var(--ink-soft); background:var(--surface-2)}
+  .key-cell{color:var(--ink-faint)}
+  .nb{font-size:11px; font-weight:700; padding:2px 7px; border-radius:6px; font-family:'JetBrains Mono',monospace; color:var(--ink-faint); background:var(--surface-2)}
+  .nb-n{color:var(--n); background:var(--n-bg)}
+  .nb-y{color:var(--y); background:var(--y-bg)}
+  .ok-badge{color:var(--ok); background:var(--ok-bg); font-weight:700; font-size:12px; padding:2px 9px; border-radius:999px}
+
+  /* ---------- table card (물리 ERD) ---------- */
+  .table-card{margin:0 0 26px; break-inside:avoid; scroll-margin-top:66px}
+  .table-card-head{
+    display:flex; align-items:baseline; gap:10px; flex-wrap:wrap; margin-bottom:8px;
+  }
+  .table-card-head .tname{
+    font-family:'JetBrains Mono',monospace; font-weight:700; font-size:15px; color:var(--ink);
+    background:var(--surface-2); border:1px solid var(--border); padding:3px 10px; border-radius:8px;
+  }
+  .table-card-head .tcomment{font-size:12.8px; color:var(--ink-faint)}
+
+  /* ---------- legend chips ---------- */
+  .legend-grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:8px; margin:14px 0 8px}
+  .legend-chip{display:flex; align-items:center; gap:10px; padding:9px 12px; border:1px solid var(--border); border-radius:10px; background:var(--surface); font-size:12.8px}
+
+  /* ---------- revision history ---------- */
+  .rev-list{display:grid; gap:10px; margin:14px 0}
+  .rev-item{display:grid; grid-template-columns:64px 1fr; gap:14px; padding:12px 14px; border:1px solid var(--border); border-radius:10px; background:var(--surface)}
+  .rev-item .badge2{font-weight:800; font-size:12px; color:var(--accent-ink); background:var(--accent-soft); border-radius:8px; display:flex; align-items:center; justify-content:center}
+  .rev-item p{margin:0; font-size:13.2px; color:var(--ink-soft); line-height:1.65}
+
+  /* ---------- ERD images ---------- */
+  .erd-figure{margin:0 0 40px; border:1px solid var(--border); border-radius:14px; overflow:hidden; background:var(--surface); box-shadow:var(--shadow)}
+  .erd-figure .cap{padding:14px 18px; border-bottom:1px solid var(--border); display:flex; align-items:center; gap:10px; flex-wrap:wrap}
+  .erd-figure .cap .idx{width:26px;height:26px;border-radius:8px;background:var(--accent);color:#fff;font-weight:800;font-size:12px;display:flex;align-items:center;justify-content:center}
+  .erd-figure .cap .ti{font-weight:700; font-size:14.5px}
+  .erd-figure .imgbox{padding:18px; background:repeating-linear-gradient(45deg, var(--surface-2) 0 12px, var(--surface) 12px 24px); overflow-x:auto}
+  .erd-figure img{display:block; max-width:100%; height:auto; margin:0 auto; border-radius:6px}
+
+  footer{
+    border-top:1px solid var(--border); padding:34px 20px 50px; text-align:center;
+  }
+  footer p{margin:4px 0; font-size:12px; color:var(--ink-faint)}
+
+  ::selection{background:var(--accent-soft)}
+
+  /* ---------- sidebar layout ---------- */
+  :root{ --topbar-h:53px; --sidebar-w:264px; }
+  .layout{display:flex; align-items:flex-start}
+  .sidebar{
+    flex:none; width:var(--sidebar-w);
+    position:sticky; top:var(--topbar-h);
+    height:calc(100vh - var(--topbar-h));
+    overflow-y:auto;
+    border-right:1px solid var(--border);
+    background:var(--surface);
+    padding:18px 14px 40px;
+  }
+  .page-content{flex:1 1 auto; min-width:0}
+  .sidebar-title{font-size:11px; font-weight:700; color:var(--ink-faint); letter-spacing:.06em; margin:4px 8px 10px}
+  .sb-group{margin-bottom:4px}
+  .sb-top{
+    display:flex; align-items:center; gap:9px; padding:8px 8px; border-radius:9px;
+    text-decoration:none; color:var(--ink); font-size:13.3px; font-weight:700;
+  }
+  .sb-top:hover{background:var(--accent-soft)}
+  .sb-top .sb-num{
+    width:20px; height:20px; border-radius:6px; background:var(--accent-soft); color:var(--accent-ink);
+    font-size:10.5px; font-weight:800; display:flex; align-items:center; justify-content:center; flex:none;
+  }
+  .sb-top.active{background:var(--accent-soft); color:var(--accent-ink)}
+  .sb-top.active .sb-num{background:var(--accent); color:#fff}
+  .sb-sub{list-style:none; margin:2px 0 10px; padding:0 0 0 29px; border-left:1px solid var(--border-soft)}
+  .sb-sub li{margin:0}
+  .sb-sub a{
+    display:block; padding:5px 10px; margin-left:-1px; border-left:2px solid transparent;
+    text-decoration:none; color:var(--ink-soft); font-size:12.3px; line-height:1.5;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  }
+  .sb-sub a:hover{color:var(--accent-ink); background:var(--surface-2)}
+  .sb-sub a.active{color:var(--accent-ink); border-left-color:var(--accent); background:var(--accent-soft); font-weight:600}
+  .sb-sub a.mono{font-family:'JetBrains Mono',monospace; font-size:11.6px}
+  .sb-domain{font-size:10.8px; font-weight:700; color:var(--ink-faint); margin:10px 0 2px 10px; letter-spacing:.03em}
+
+  .topbar-left{display:flex; align-items:center; gap:12px; min-width:0}
+  .sb-toggle{
+    display:none; align-items:center; gap:6px; flex:none;
+    border:1px solid var(--border); background:var(--surface); color:var(--ink);
+    font-size:12.8px; font-weight:700; padding:7px 11px; border-radius:9px; cursor:pointer;
+  }
+  .sb-toggle:hover{background:var(--accent-soft); border-color:var(--accent); color:var(--accent-ink)}
+  .sb-backdrop{display:none; position:fixed; inset:0; background:rgba(20,17,35,.45); z-index:55}
+
+  @media (max-width:640px){
+    .hero{padding:40px 16px 22px}
+    .topbar-nav{display:none}
+    table.def-table{font-size:12.9px}
+    .topbar-title small{display:none}
+  }
+  @media (max-width:1000px){
+    .sidebar{
+      position:fixed; top:0; left:0; height:100vh; z-index:65; width:82vw; max-width:320px;
+      transform:translateX(-100%); transition:transform .22s ease; box-shadow:var(--shadow);
+      padding-top:18px;
+    }
+    .sidebar.open{transform:translateX(0)}
+    .sb-toggle{display:inline-flex}
+    body.sb-open .sb-backdrop{display:block}
+  }
+
+  /* ---------- 인쇄 / PDF 저장 대비 ---------- */
+  @media print{
+    *{ -webkit-print-color-adjust:exact !important; print-color-adjust:exact !important; color-adjust:exact !important; }
+    body{background:#fff}
+    .topbar, .sb-toggle, .sb-backdrop, .sidebar{display:none !important}
+    .layout{display:block}
+    .page-content{margin-left:0 !important}
+    .hero{padding-top:16px}
+    a[href^="#"]{color:inherit; text-decoration:none}
+    .table-wrap{box-shadow:none; border:1px solid #ccc}
+    table.def-table thead th{position:static}
+    table.def-table thead{display:table-header-group}
+    table.def-table tfoot{display:table-footer-group}
+    tr, .table-card, .erd-figure, .criterion, .rev-item{break-inside:avoid; page-break-inside:avoid}
+    section.doc-section{break-before:page}
+    section#overview{break-before:auto}
+    .erd-figure .imgbox{background:#fff}
+    .hero-sub, .sec-desc{max-width:none}
+  }
+
+  /* ---------- API document additions ---------- */
+  .api-kicker{display:inline-flex;align-items:center;gap:8px;font-size:12px;font-weight:700;letter-spacing:.05em;color:var(--accent-ink);background:var(--accent-soft);padding:5px 12px;border-radius:999px;margin-bottom:18px}
+  code{font-family:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;background:var(--code-bg);border:1px solid var(--border-soft);border-radius:5px;padding:1px 5px;font-size:.88em;white-space:nowrap}
+  pre{overflow:auto;background:var(--code-bg);border:1px solid var(--border);border-radius:10px;padding:14px 16px}
+  pre code{border:0;padding:0;background:transparent;white-space:pre}
+  .doc-section > .section-body > p{color:var(--ink-soft)}
+  .doc-section ul,.doc-section ol{padding-left:22px;color:var(--ink-soft)}
+  .doc-section li{margin:5px 0}
+  blockquote{margin:16px 0;padding:14px 16px;border:1px solid var(--border);border-left:4px solid var(--accent);border-radius:10px;background:var(--accent-soft-2);color:var(--ink-soft)}
+  blockquote p{margin:0}
+  .table-wrap{max-width:100%}
+  table.def-table{min-width:760px}
+  .api-table{min-width:1240px !important;font-size:12.7px !important}
+  .api-table th:nth-child(1){min-width:175px}
+  .api-table th:nth-child(3){min-width:300px}
+  .api-table th:nth-child(5){min-width:170px}
+  .model-table{min-width:960px !important}
+  .method{display:inline-block;min-width:54px;text-align:center;border-radius:6px;padding:2px 7px;font-family:'JetBrains Mono',monospace;font-size:10.5px;font-weight:800}
+  .method-get{background:#e8f2fb;color:#1d6fa5}.method-post{background:#e9f6ea;color:#2e7d32}.method-patch{background:#fdf3dd;color:#8a5a00}.method-delete{background:#fdecea;color:#c0392b}
+  .yes{display:inline-block;color:var(--ok);background:var(--ok-bg);font-size:11px;font-weight:700;padding:2px 7px;border-radius:999px}
+  .no{display:inline-block;color:var(--ink-faint);background:var(--surface-2);font-size:11px;font-weight:700;padding:2px 7px;border-radius:999px}
+  .section-body h3{font-size:15.5px;font-weight:700;margin:26px 0 12px;padding-bottom:8px;border-bottom:2px solid var(--border);color:var(--ink)}
+  .section-body h4{font-size:14px;margin:22px 0 10px}
+  .section-body > hr{border:0;border-top:1px solid var(--border);margin:30px 0}
+  .doc-section{scroll-margin-top:66px}
+  .toc-item .d{display:block}
+  .criteria-box.compact{padding-bottom:24px}
+  .criteria-box.compact .criterion{min-height:100%}
+  .criteria-list.three{grid-template-columns:repeat(3,minmax(0,1fr))}
+  @media(max-width:900px){.criteria-list.three{grid-template-columns:1fr}}
+  @media print{.api-table{font-size:9.5px !important;min-width:0 !important} table.def-table{min-width:0}.criteria-list.three{grid-template-columns:1fr 1fr 1fr}}
+</style>
+</head>
+<body>
+<div class="topbar"><div class="topbar-inner"><div class="topbar-left"><button class="sb-toggle" id="sbToggle" aria-label="목차 열기">☰ <span>목차</span></button><div class="topbar-title">PlayEAT <small>API 명세서 · OpenAPI 3.1.0</small></div></div><nav class="topbar-nav"><a href="#evaluation">평가 기준 요약</a><a href="#overview">공통 명세</a><a href="#restaurants">API 명세</a><a href="#status">문서화 상태</a></nav></div></div>
+<div class="sb-backdrop" id="sbBackdrop"></div>
+<div class="layout">
+<nav class="sidebar" id="sidebar"><p class="sidebar-title">API 문서 목차</p><div class="sb-group"><a class="sb-top" href="#overview"><span class="sb-num">1</span>문서 개요</a></div><div class="sb-group"><a class="sb-top" href="#rules"><span class="sb-num">2</span>문서 작성 기준</a></div><div class="sb-group"><a class="sb-top" href="#common"><span class="sb-num">3</span>공통 인증·응답 기준</a></div><div class="sb-group"><a class="sb-top" href="#models"><span class="sb-num">4</span>요청·응답 Pydantic 모델</a></div><div class="sb-group"><a class="sb-top" href="#restaurants"><span class="sb-num">5</span>Restaurants</a></div><div class="sb-group"><a class="sb-top" href="#recommendations"><span class="sb-num">6</span>Recommendations</a></div><div class="sb-group"><a class="sb-top" href="#auth"><span class="sb-num">7</span>Auth</a></div><div class="sb-group"><a class="sb-top" href="#users"><span class="sb-num">8</span>Users</a></div><div class="sb-group"><a class="sb-top" href="#conversations"><span class="sb-num">9</span>Conversations &amp; Chat</a></div><div class="sb-group"><a class="sb-top" href="#admin"><span class="sb-num">10</span>Admin</a></div><div class="sb-group"><a class="sb-top" href="#admin-logs"><span class="sb-num">11</span>Admin Log Analysis</a></div><div class="sb-group"><a class="sb-top" href="#system"><span class="sb-num">12</span>System</a></div><div class="sb-group"><a class="sb-top" href="#status"><span class="sb-num">13</span>현재 문서화 상태</a></div></nav>
+<div class="page-content">
+<div class="hero"><span class="api-kicker">API SPECIFICATION</span><h1>PlayEAT API 명세서｜최종 OpenAPI 기준</h1><p class="hero-sub">최종 제공된 OpenAPI JSON을 기준으로 작성한 수동 Markdown API 명세서입니다. OpenAPI에 없는 응답 구조·오류 코드·권한 조건은 임의로 추가하지 않았습니다.</p><div class="meta-grid"><div class="meta-cell"><div class="k">서비스명</div><div class="v">PlayEAT</div></div><div class="meta-cell"><div class="k">API 문서 버전</div><div class="v">0.2.0</div></div><div class="meta-cell"><div class="k">OpenAPI 버전</div><div class="v">3.1.0</div></div><div class="meta-cell"><div class="k">인증 Scheme</div><div class="v">HTTPBearer</div></div></div></div>
+<div class="criteria"><div class="criteria-box compact">
+<div class="criteria-head"><h2>문서 기준 요약</h2><span class="tag">OpenAPI 기반</span></div>
+<p class="criteria-lead">Markdown 원문의 작성 기준과 공통 인증·응답 기준을 한눈에 볼 수 있도록 요약했습니다.</p>
+<div class="criteria-list three">
+<div class="criterion"><div class="num">1</div><div><h3>OpenAPI 우선</h3><p>Endpoint, Method, Parameter, Request Body, Response, Schema, Security는 최종 OpenAPI 값을 기준으로 합니다.</p></div></div>
+<div class="criterion"><div class="num">2</div><div><h3>임의 보완 금지</h3><p>OpenAPI에 없는 오류 응답은 추가하지 않으며, 빈 성공 응답 Schema는 <b>스키마 미정의</b>로 표시합니다.</p></div></div>
+<div class="criterion"><div class="num">3</div><div><h3>인증 표기</h3><p><b>HTTPBearer</b>, <b>Authorization Header</b>, <b>없음</b>을 OpenAPI 정의에 따라 구분합니다.</p></div></div>
+</div></div></div>
+<div class="criteria" id="evaluation">
+  <div class="criteria-box">
+    <div class="criteria-head"><h2>API 문서 평가기준 충족 요약</h2><span class="tag">두괄식 요약</span></div>
+    <p class="criteria-lead">평가자가 문서의 충족 상태를 먼저 확인할 수 있도록 3개 평가기준과 현재 문서의 근거를 맨 앞에 요약합니다.</p>
+    <div class="criteria-list">
+      <div class="criterion"><div class="num">1</div><div><span class="check">✓ 대체로 충족</span><h3>리소스 중심 URL과 HTTP Method 사용</h3><p class="lead">Restaurants, Users, Conversations, Admin 등 리소스 단위로 엔드포인트가 구성되어 있고 GET·POST·PATCH·DELETE가 조회·생성·수정·삭제 의미에 맞게 사용됩니다.</p><p>예: <b>GET /restaurants</b> 조회, <b>POST /conversations</b> 생성, <b>PATCH /users/me</b> 부분 수정, <b>DELETE /admin/restaurants/{restaurant_id}</b> 비활성화 처리.</p></div></div>
+      <div class="criterion"><div class="num">2</div><div><span class="check">△ 부분 충족</span><h3>표준화된 에러 응답과 4xx/5xx 예외 처리 규칙</h3><p class="lead">검증 오류에 대한 <b>422 HTTPValidationError</b>는 다수 Operation에 정의되어 있으나, HTTP Status Code + 에러 코드 + 메시지 + 상세를 공통 구조로 묶은 표준 에러 모델과 전체 4xx/5xx 규칙은 OpenAPI에서 확인되지 않습니다.</p><p>따라서 현재 문서는 OpenAPI에 실제 명시된 비-2xx 응답만 기록하며, 정의되지 않은 401·403·404·409·500 등을 임의로 추가하지 않습니다.</p></div></div>
+      <div class="criterion"><div class="num">3</div><div><span class="check">△ 부분 충족</span><h3>Request/Response Pydantic 모델 명확성 및 nested 모델</h3><p class="lead">Request 모델은 필수/선택 여부, 타입과 주요 제약을 확인할 수 있고 <b>LogSummaryRequest.filters → LogFilters</b>처럼 중첩 JSON도 nested 모델로 표현됩니다.</p><p>다만 다수 성공 Response가 <b>{}</b>로 스키마 미정의 상태이며, 필드별 <b>example/examples</b>도 확인되지 않아 Response 모델과 예시값 문서화는 보완이 필요합니다.</p></div></div>
+    </div>
+    <p class="criteria-foot"><b>요약:</b> 평가기준 1은 대체로 충족하며, 평가기준 2·3은 현재 OpenAPI 기준으로 부분 충족입니다. 아래 본문은 기존 API 명세 내용을 변경하지 않고 상세 근거를 제공합니다.</p>
+  </div>
+</div>
+
+<div class="toc-wrap"><p class="toc-title">목차</p><div class="toc-grid"><a class="toc-item" href="#overview"><span class="toc-num">1</span><span><span class="t">문서 개요</span><span class="d">버전 · 인증 Scheme</span></span></a><a class="toc-item" href="#rules"><span class="toc-num">2</span><span><span class="t">문서 작성 기준</span><span class="d">작성 원칙</span></span></a><a class="toc-item" href="#common"><span class="toc-num">3</span><span><span class="t">공통 인증·응답 기준</span><span class="d">인증 표기 · 오류 기준</span></span></a><a class="toc-item" href="#models"><span class="toc-num">4</span><span><span class="t">요청·응답 Pydantic 모델</span><span class="d">21개 Schema</span></span></a><a class="toc-item" href="#restaurants"><span class="toc-num">5</span><span><span class="t">Restaurants</span><span class="d">식당 · 카테고리 · 태그</span></span></a><a class="toc-item" href="#recommendations"><span class="toc-num">6</span><span><span class="t">Recommendations</span><span class="d">추천 피드백</span></span></a><a class="toc-item" href="#auth"><span class="toc-num">7</span><span><span class="t">Auth</span><span class="d">회원가입 · 로그인 · 비밀번호</span></span></a><a class="toc-item" href="#users"><span class="toc-num">8</span><span><span class="t">Users</span><span class="d">프로필 · 태그 · 좋아요</span></span></a><a class="toc-item" href="#conversations"><span class="toc-num">9</span><span><span class="t">Conversations &amp; Chat</span><span class="d">대화 · 채팅 · 피드백</span></span></a><a class="toc-item" href="#admin"><span class="toc-num">10</span><span><span class="t">Admin</span><span class="d">관리자 식당 · 피드백 · 검색통계</span></span></a><a class="toc-item" href="#admin-logs"><span class="toc-num">11</span><span><span class="t">Admin Log Analysis</span><span class="d">로그 · 통계 · LLM 요약</span></span></a><a class="toc-item" href="#system"><span class="toc-num">12</span><span><span class="t">System</span><span class="d">Health Check</span></span></a><a class="toc-item" href="#status"><span class="toc-num">13</span><span><span class="t">현재 문서화 상태</span><span class="d">문서화 점검</span></span></a></div></div>
+<main><section class="doc-section" id="overview">
+      <div class="sec-head"><span class="sec-num">1</span><h2>문서 개요</h2></div>
+      <div class="section-body"><div class="table-wrap"><table class="def-table">
+<thead>
+<tr>
+<th>항목</th>
+<th>내용</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>서비스명</td>
+<td>PlayEAT</td>
+</tr>
+<tr>
+<td>API 문서 버전</td>
+<td><code>0.2.0</code></td>
+</tr>
+<tr>
+<td>OpenAPI 버전</td>
+<td><code>3.1.0</code></td>
+</tr>
+<tr>
+<td>인증 Scheme</td>
+<td><code>HTTPBearer</code> (<code>type: http</code>, <code>scheme: bearer</code>)</td>
+</tr>
+<tr>
+<td>문서 형식</td>
+<td>Markdown</td>
+</tr>
+</tbody>
+</table></div>
+<blockquote>
+<p>OpenAPI에 <code>servers</code> 항목이 없으므로 Base URL은 임의로 지정하지 않습니다.</p>
+</blockquote>
+</div>
+    </section><hr class="rule"><section class="doc-section" id="rules">
+      <div class="sec-head"><span class="sec-num">2</span><h2>문서 작성 기준</h2></div>
+      <div class="section-body"><ul>
+<li>Endpoint, Method, Parameter, Request Body, Response, Schema, Security는 최종 OpenAPI 값을 기준으로 합니다.</li>
+<li>OpenAPI에 없는 오류 응답은 임의로 추가하지 않습니다.</li>
+<li>Endpoint/Schema의 <code>description</code>은 문서에 반영합니다.</li>
+<li>성공 Response Schema가 <code>{}</code>이면 <code>스키마 미정의</code>로 표시합니다.</li>
+</ul>
+<div class="sub-guide">
+<h3>표 읽는 방법</h3>
+<ul>
+<li>한 API에 요청 항목이 여러 개 있으면 <code>↳</code> 행으로 이어집니다.</li>
+<li><code>요청 위치</code>는 Path / Query / Header / Body를 구분합니다.</li>
+<li>Body는 Pydantic 모델명을 표시하며 세부 필드는 4번 모델 표에서 확인합니다.</li>
+<li><code>Response</code>는 OpenAPI의 2xx 응답과 Schema를 표시합니다.</li>
+<li><code>예외처리</code>는 OpenAPI에 명시된 비-2xx 응답만 표시합니다.</li>
+</ul>
+</div>
+</div>
+    </section><hr class="rule"><section class="doc-section" id="common">
+      <div class="sec-head"><span class="sec-num">3</span><h2>공통 인증·응답 기준</h2></div>
+      <div class="section-body"><div class="table-wrap"><table class="def-table">
+<thead>
+<tr>
+<th>표시</th>
+<th>의미</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>HTTPBearer</code></td>
+<td>Operation의 <code>security</code>에 HTTPBearer가 정의됨</td>
+</tr>
+<tr>
+<td><code>Authorization Header</code></td>
+<td>Parameter에 <code>authorization</code> Header가 직접 정의됨</td>
+</tr>
+<tr>
+<td><code>없음</code></td>
+<td>위 인증 정보가 OpenAPI에 정의되지 않음</td>
+</tr>
+</tbody>
+</table></div>
+</div>
+    </section><hr class="rule"><section class="doc-section" id="models">
+      <div class="sec-head"><span class="sec-num">4</span><h2>요청·응답 Pydantic 모델</h2></div>
+      <div class="section-body"><div class="table-wrap"><table class="def-table model-table">
+<thead>
+<tr>
+<th>모델</th>
+<th>설명</th>
+<th>필드</th>
+<th>타입</th>
+<th style="text-align:center">필수</th>
+<th>제약</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>ChatRequest</code></td>
+<td>POST /conversations/{id}/chat 사용자 메시지.</td>
+<td><code>content</code></td>
+<td><code>string</code></td>
+<td style="text-align:center"><span class="yes">O</span></td>
+<td>-</td>
+</tr>
+<tr>
+<td><code>ChatRequest</code></td>
+<td></td>
+<td><code>restaurant_category</code></td>
+<td><code>string &amp;#124; null</code></td>
+<td style="text-align:center"><span class="no">X</span></td>
+<td>-</td>
+</tr>
+<tr>
+<td><code>ChatRequest</code></td>
+<td></td>
+<td><code>menu_type</code></td>
+<td><code>string &amp;#124; null</code></td>
+<td style="text-align:center"><span class="no">X</span></td>
+<td>-</td>
+</tr>
+<tr>
+<td><code>ChatRequest</code></td>
+<td></td>
+<td><code>price_level</code></td>
+<td><code>string &amp;#124; null</code></td>
+<td style="text-align:center"><span class="no">X</span></td>
+<td>-</td>
+</tr>
+<tr>
+<td><code>ChatRequest</code></td>
+<td></td>
+<td><code>tone</code></td>
+<td><code>string &amp;#124; null</code></td>
+<td style="text-align:center"><span class="no">X</span></td>
+<td>-</td>
+</tr>
+<tr>
+<td><code>ChatRequest</code></td>
+<td></td>
+<td><code>length</code></td>
+<td><code>string &amp;#124; null</code></td>
+<td style="text-align:center"><span class="no">X</span></td>
+<td>-</td>
+</tr>
+<tr>
+<td><code>CleaningRunRequest</code></td>
+<td>로그 정제 실행 요청.</td>
+<td><code>period_start</code></td>
+<td><code>date-time</code></td>
+<td style="text-align:center"><span class="yes">O</span></td>
+<td>-</td>
+</tr>
+<tr>
+<td><code>CleaningRunRequest</code></td>
+<td></td>
+<td><code>period_end</code></td>
+<td><code>date-time</code></td>
+<td style="text-align:center"><span class="yes">O</span></td>
+<td>-</td>
+</tr>
+<tr>
+<td><code>CleaningRunRequest</code></td>
+<td></td>
+<td><code>criteria_version</code></td>
+<td><code>string &amp;#124; null</code></td>
+<td style="text-align:center"><span class="no">X</span></td>
+<td>-</td>
+</tr>
+<tr>
+<td><code>EvaluationRunRequest</code></td>
+<td>요약 품질평가 실행 요청.</td>
+<td><code>summary_id</code></td>
+<td><code>uuid</code></td>
+<td style="text-align:center"><span class="yes">O</span></td>
+<td>-</td>
+</tr>
+<tr>
+<td><code>EvaluationRunRequest</code></td>
+<td></td>
+<td><code>case_id</code></td>
+<td><code>uuid &amp;#124; null</code></td>
+<td style="text-align:center"><span class="no">X</span></td>
+<td>-</td>
+</tr>
+<tr>
+<td><code>EvaluationRunRequest</code></td>
+<td></td>
+<td><code>experiment_id</code></td>
+<td><code>uuid &amp;#124; null</code></td>
+<td style="text-align:center"><span class="no">X</span></td>
+<td>-</td>
+</tr>
+<tr>
+<td><code>EvaluationRunRequest</code></td>
+<td></td>
+<td><code>run_type</code></td>
+<td><code>string</code></td>
+<td style="text-align:center"><span class="no">X</span></td>
+<td>baseline / before / after, 기본 <code>baseline</code></td>
+</tr>
+<tr>
+<td><code>ExperimentCreateRequest</code></td>
+<td>개선 실험 생성 요청.</td>
+<td><code>name</code></td>
+<td><code>string</code></td>
+<td style="text-align:center"><span class="yes">O</span></td>
+<td>최소 1자, 최대 100자</td>
+</tr>
+<tr>
+<td><code>ExperimentCreateRequest</code></td>
+<td></td>
+<td><code>hypothesis</code></td>
+<td><code>string</code></td>
+<td style="text-align:center"><span class="yes">O</span></td>
+<td>최소 1자</td>
+</tr>
+<tr>
+<td><code>ExperimentCreateRequest</code></td>
+<td></td>
+<td><code>change_description</code></td>
+<td><code>string</code></td>
+<td style="text-align:center"><span class="yes">O</span></td>
+<td>최소 1자</td>
+</tr>
+<tr>
+<td><code>ExperimentCreateRequest</code></td>
+<td></td>
+<td><code>before_version</code></td>
+<td><code>string</code></td>
+<td style="text-align:center"><span class="yes">O</span></td>
+<td>최소 1자, 최대 50자</td>
+</tr>
+<tr>
+<td><code>ExperimentCreateRequest</code></td>
+<td></td>
+<td><code>after_version</code></td>
+<td><code>string</code></td>
+<td style="text-align:center"><span class="yes">O</span></td>
+<td>최소 1자, 최대 50자</td>
+</tr>
+<tr>
+<td><code>FeedbackCreateRequest</code></td>
+<td>POST /recommendations/{id}/feedback 요청.</td>
+<td><code>feedback_value</code></td>
+<td><code>string</code></td>
+<td style="text-align:center"><span class="yes">O</span></td>
+<td>1 / 2 / 3</td>
+</tr>
+<tr>
+<td><code>FeedbackRequest</code></td>
+<td>대화 메시지에 대한 좋아요/싫어요.</td>
+<td><code>message_id</code></td>
+<td><code>uuid</code></td>
+<td style="text-align:center"><span class="yes">O</span></td>
+<td>-</td>
+</tr>
+<tr>
+<td><code>FeedbackRequest</code></td>
+<td></td>
+<td><code>value</code></td>
+<td><code>string &amp;#124; null</code></td>
+<td style="text-align:center"><span class="no">X</span></td>
+<td>-</td>
+</tr>
+<tr>
+<td><code>HTTPValidationError</code></td>
+<td>-</td>
+<td><code>detail</code></td>
+<td><code>array[ValidationError]</code></td>
+<td style="text-align:center"><span class="no">X</span></td>
+<td>-</td>
+</tr>
+<tr>
+<td><code>LogFilters</code></td>
+<td>로그 조회·요약에 쓰는 필터.</td>
+<td><code>endpoint</code></td>
+<td><code>string &amp;#124; null</code></td>
+<td style="text-align:center"><span class="no">X</span></td>
+<td>-</td>
+</tr>
+<tr>
+<td><code>LogFilters</code></td>
+<td></td>
+<td><code>http_method</code></td>
+<td><code>string &amp;#124; null</code></td>
+<td style="text-align:center"><span class="no">X</span></td>
+<td>-</td>
+</tr>
+<tr>
+<td><code>LogFilters</code></td>
+<td></td>
+<td><code>status_code</code></td>
+<td><code>integer &amp;#124; null</code></td>
+<td style="text-align:center"><span class="no">X</span></td>
+<td>-</td>
+</tr>
+<tr>
+<td><code>LogFilters</code></td>
+<td></td>
+<td><code>error_only</code></td>
+<td><code>boolean</code></td>
+<td style="text-align:center"><span class="no">X</span></td>
+<td>기본 <code>false</code></td>
+</tr>
+<tr>
+<td><code>LogSummaryRequest</code></td>
+<td>LLM 로그 요약 요청.</td>
+<td><code>period_start</code></td>
+<td><code>date-time</code></td>
+<td style="text-align:center"><span class="yes">O</span></td>
+<td>-</td>
+</tr>
+<tr>
+<td><code>LogSummaryRequest</code></td>
+<td></td>
+<td><code>period_end</code></td>
+<td><code>date-time</code></td>
+<td style="text-align:center"><span class="yes">O</span></td>
+<td>-</td>
+</tr>
+<tr>
+<td><code>LogSummaryRequest</code></td>
+<td></td>
+<td><code>cleaning_run_id</code></td>
+<td><code>uuid</code></td>
+<td style="text-align:center"><span class="yes">O</span></td>
+<td>-</td>
+</tr>
+<tr>
+<td><code>LogSummaryRequest</code></td>
+<td></td>
+<td><code>filters</code></td>
+<td><code>LogFilters</code></td>
+<td style="text-align:center"><span class="no">X</span></td>
+<td>-</td>
+</tr>
+<tr>
+<td><code>LoginRequest</code></td>
+<td>로그인 요청. MVP는 이메일+비밀번호만 받는다.</td>
+<td><code>email</code></td>
+<td><code>email</code></td>
+<td style="text-align:center"><span class="yes">O</span></td>
+<td>-</td>
+</tr>
+<tr>
+<td><code>LoginRequest</code></td>
+<td></td>
+<td><code>password</code></td>
+<td><code>string</code></td>
+<td style="text-align:center"><span class="yes">O</span></td>
+<td>-</td>
+</tr>
+<tr>
+<td><code>MessageCreate</code></td>
+<td>대화에 메시지를 저장할 때 받는 값.</td>
+<td><code>role</code></td>
+<td><code>string</code></td>
+<td style="text-align:center"><span class="yes">O</span></td>
+<td>user / assistant / system</td>
+</tr>
+<tr>
+<td><code>MessageCreate</code></td>
+<td></td>
+<td><code>content</code></td>
+<td><code>string</code></td>
+<td style="text-align:center"><span class="yes">O</span></td>
+<td>최소 1자</td>
+</tr>
+<tr>
+<td><code>MessageOut</code></td>
+<td>저장된 메시지 조회 응답.</td>
+<td><code>id</code></td>
+<td><code>uuid</code></td>
+<td style="text-align:center"><span class="yes">O</span></td>
+<td>-</td>
+</tr>
+<tr>
+<td><code>MessageOut</code></td>
+<td></td>
+<td><code>conversation_id</code></td>
+<td><code>uuid</code></td>
+<td style="text-align:center"><span class="yes">O</span></td>
+<td>-</td>
+</tr>
+<tr>
+<td><code>MessageOut</code></td>
+<td></td>
+<td><code>role</code></td>
+<td><code>string</code></td>
+<td style="text-align:center"><span class="yes">O</span></td>
+<td>-</td>
+</tr>
+<tr>
+<td><code>MessageOut</code></td>
+<td></td>
+<td><code>content</code></td>
+<td><code>string</code></td>
+<td style="text-align:center"><span class="yes">O</span></td>
+<td>-</td>
+</tr>
+<tr>
+<td><code>MessageOut</code></td>
+<td></td>
+<td><code>created_at</code></td>
+<td><code>date-time</code></td>
+<td style="text-align:center"><span class="yes">O</span></td>
+<td>-</td>
+</tr>
+<tr>
+<td><code>MyConversationCreate</code></td>
+<td>POST /conversations 요청.&lt;br&gt;&lt;br&gt;user_id는 받지 않는다. 토큰에서 꺼낸 값만 신뢰한다.&lt;br&gt;받으면 남의 명의로 대화를 만들 수 있다.</td>
+<td><code>title</code></td>
+<td><code>string &amp;#124; null</code></td>
+<td style="text-align:center"><span class="no">X</span></td>
+<td>-</td>
+</tr>
+<tr>
+<td><code>NicknameUpdateRequest</code></td>
+<td>PATCH /users/me 닉네임 수정 요청.</td>
+<td><code>nickname</code></td>
+<td><code>string</code></td>
+<td style="text-align:center"><span class="yes">O</span></td>
+<td>최소 1자, 최대 45자</td>
+</tr>
+<tr>
+<td><code>PasswordChangeRequest</code></td>
+<td>비밀번호 변경 요청. 확인 값은 화면에서만 검사한다.</td>
+<td><code>current_password</code></td>
+<td><code>string</code></td>
+<td style="text-align:center"><span class="yes">O</span></td>
+<td>최소 8자, 최대 128자</td>
+</tr>
+<tr>
+<td><code>PasswordChangeRequest</code></td>
+<td></td>
+<td><code>new_password</code></td>
+<td><code>string</code></td>
+<td style="text-align:center"><span class="yes">O</span></td>
+<td>최소 8자, 최대 128자</td>
+</tr>
+<tr>
+<td><code>RegenerateRequest</code></td>
+<td>같은 대화에서 답변만 다시 생성할 때 쓰는 요청.&lt;br&gt;&lt;br&gt;ChatRequest를 재사용하면 안 된다. 거기에는 content가 필수라서&lt;br&gt;질문을 다시 보내지 않는 이 요청은 422로 거부당한다.</td>
+<td><code>tone</code></td>
+<td><code>string &amp;#124; null</code></td>
+<td style="text-align:center"><span class="no">X</span></td>
+<td>-</td>
+</tr>
+<tr>
+<td><code>RegenerateRequest</code></td>
+<td></td>
+<td><code>length</code></td>
+<td><code>string &amp;#124; null</code></td>
+<td style="text-align:center"><span class="no">X</span></td>
+<td>-</td>
+</tr>
+<tr>
+<td><code>ResponseMeta</code></td>
+<td>성공 응답에 함께 담을 요청 번호와 시각.</td>
+<td><code>request_id</code></td>
+<td><code>uuid</code></td>
+<td style="text-align:center"><span class="yes">O</span></td>
+<td>-</td>
+</tr>
+<tr>
+<td><code>ResponseMeta</code></td>
+<td></td>
+<td><code>timestamp</code></td>
+<td><code>date-time</code></td>
+<td style="text-align:center"><span class="yes">O</span></td>
+<td>-</td>
+</tr>
+<tr>
+<td><code>SignUpRequest</code></td>
+<td>POST /auth/signups 요청. 이메일 회원 생성.</td>
+<td><code>email</code></td>
+<td><code>email</code></td>
+<td style="text-align:center"><span class="yes">O</span></td>
+<td>-</td>
+</tr>
+<tr>
+<td><code>SignUpRequest</code></td>
+<td></td>
+<td><code>password</code></td>
+<td><code>string</code></td>
+<td style="text-align:center"><span class="yes">O</span></td>
+<td>최소 8자, 최대 128자</td>
+</tr>
+<tr>
+<td><code>SignUpRequest</code></td>
+<td></td>
+<td><code>nickname</code></td>
+<td><code>string</code></td>
+<td style="text-align:center"><span class="yes">O</span></td>
+<td>최소 1자, 최대 45자</td>
+</tr>
+<tr>
+<td><code>SignUpRequest</code></td>
+<td></td>
+<td><code>terms_agreed</code></td>
+<td><code>boolean</code></td>
+<td style="text-align:center"><span class="yes">O</span></td>
+<td><code>true</code></td>
+</tr>
+<tr>
+<td><code>SignUpRequest</code></td>
+<td></td>
+<td><code>privacy_agreed</code></td>
+<td><code>boolean</code></td>
+<td style="text-align:center"><span class="yes">O</span></td>
+<td><code>true</code></td>
+</tr>
+<tr>
+<td><code>SignUpResponse</code></td>
+<td>회원가입 완료 후 돌려줄 회원 정보.</td>
+<td><code>user_id</code></td>
+<td><code>uuid</code></td>
+<td style="text-align:center"><span class="yes">O</span></td>
+<td>-</td>
+</tr>
+<tr>
+<td><code>SignUpResponse</code></td>
+<td></td>
+<td><code>email</code></td>
+<td><code>email</code></td>
+<td style="text-align:center"><span class="yes">O</span></td>
+<td>-</td>
+</tr>
+<tr>
+<td><code>SignUpResponse</code></td>
+<td></td>
+<td><code>nickname</code></td>
+<td><code>string</code></td>
+<td style="text-align:center"><span class="yes">O</span></td>
+<td>-</td>
+</tr>
+<tr>
+<td><code>SignUpResponse</code></td>
+<td></td>
+<td><code>created_at</code></td>
+<td><code>date-time</code></td>
+<td style="text-align:center"><span class="yes">O</span></td>
+<td>-</td>
+</tr>
+<tr>
+<td><code>SuccessResponse_SignUpResponse_</code></td>
+<td>-</td>
+<td><code>data</code></td>
+<td><code>SignUpResponse</code></td>
+<td style="text-align:center"><span class="yes">O</span></td>
+<td>-</td>
+</tr>
+<tr>
+<td><code>SuccessResponse_SignUpResponse_</code></td>
+<td></td>
+<td><code>meta</code></td>
+<td><code>ResponseMeta</code></td>
+<td style="text-align:center"><span class="yes">O</span></td>
+<td>-</td>
+</tr>
+<tr>
+<td><code>ValidationError</code></td>
+<td>-</td>
+<td><code>loc</code></td>
+<td><code>array[string &amp;#124; integer]</code></td>
+<td style="text-align:center"><span class="yes">O</span></td>
+<td>-</td>
+</tr>
+<tr>
+<td><code>ValidationError</code></td>
+<td></td>
+<td><code>msg</code></td>
+<td><code>string</code></td>
+<td style="text-align:center"><span class="yes">O</span></td>
+<td>-</td>
+</tr>
+<tr>
+<td><code>ValidationError</code></td>
+<td></td>
+<td><code>type</code></td>
+<td><code>string</code></td>
+<td style="text-align:center"><span class="yes">O</span></td>
+<td>-</td>
+</tr>
+<tr>
+<td><code>ValidationError</code></td>
+<td></td>
+<td><code>input</code></td>
+<td><code>-</code></td>
+<td style="text-align:center"><span class="no">X</span></td>
+<td>-</td>
+</tr>
+<tr>
+<td><code>ValidationError</code></td>
+<td></td>
+<td><code>ctx</code></td>
+<td><code>object</code></td>
+<td style="text-align:center"><span class="no">X</span></td>
+<td>-</td>
+</tr>
+</tbody>
+</table></div>
+</div>
+    </section><hr class="rule"><section class="doc-section" id="restaurants">
+      <div class="sec-head"><span class="sec-num">5</span><h2>Restaurants</h2></div>
+      <div class="section-body"><div class="table-wrap"><table class="def-table api-table">
+<thead><tr>
+<th> 기능</th>
+<th style="text-align:center">Method</th>
+<th>API</th>
+<th style="text-align:center">요청 위치</th>
+<th>요청 항목</th>
+<th>타입</th>
+<th style="text-align:center">필수</th>
+<th>제약</th>
+<th>Response</th>
+<th>인증</th>
+<th>예외처리 </th>
+</tr></thead>
+<tbody>
+<tr>
+<td> List Restaurant Categories</td>
+<td style="text-align:center">GET</td>
+<td><code>/api/v1/restaurant-categories</code></td>
+<td style="text-align:center">-</td>
+<td>없음</td>
+<td>-</td>
+<td style="text-align:center">-</td>
+<td>-</td>
+<td><code>200</code> · 스키마 미정의</td>
+<td>없음</td>
+<td>- </td>
+</tr>
+<tr>
+<td> List Restaurants</td>
+<td style="text-align:center">GET</td>
+<td><code>/api/v1/restaurants</code></td>
+<td style="text-align:center">Query</td>
+<td><code>page</code></td>
+<td>integer</td>
+<td style="text-align:center">X</td>
+<td>최소 1, 기본 <code>1</code></td>
+<td><code>200</code> · 스키마 미정의</td>
+<td>없음</td>
+<td><code>422</code> · Validation Error · HTTPValidationError </td>
+</tr>
+<tr>
+<td> ↳</td>
+<td style="text-align:center"></td>
+<td></td>
+<td style="text-align:center">Query</td>
+<td><code>page_size</code></td>
+<td>integer</td>
+<td style="text-align:center">X</td>
+<td>최소 1, 최대 100, 기본 <code>20</code></td>
+<td></td>
+<td></td>
+<td> </td>
+</tr>
+<tr>
+<td> Search Restaurants</td>
+<td style="text-align:center">GET</td>
+<td><code>/api/v1/restaurants/search</code></td>
+<td style="text-align:center">Query</td>
+<td><code>category</code></td>
+<td>string | null</td>
+<td style="text-align:center">X</td>
+<td>-</td>
+<td><code>200</code> · 스키마 미정의</td>
+<td>없음</td>
+<td><code>422</code> · Validation Error · HTTPValidationError </td>
+</tr>
+<tr>
+<td> ↳</td>
+<td style="text-align:center"></td>
+<td></td>
+<td style="text-align:center">Query</td>
+<td><code>menu_types</code></td>
+<td>array[string] | null</td>
+<td style="text-align:center">X</td>
+<td>-</td>
+<td></td>
+<td></td>
+<td> </td>
+</tr>
+<tr>
+<td> ↳</td>
+<td style="text-align:center"></td>
+<td></td>
+<td style="text-align:center">Query</td>
+<td><code>price_level</code></td>
+<td>string | null</td>
+<td style="text-align:center">X</td>
+<td>-</td>
+<td></td>
+<td></td>
+<td> </td>
+</tr>
+<tr>
+<td> Get Restaurant</td>
+<td style="text-align:center">GET</td>
+<td><code>/api/v1/restaurants/{restaurant_id}</code></td>
+<td style="text-align:center">Path</td>
+<td><code>restaurant_id</code></td>
+<td>uuid</td>
+<td style="text-align:center">O</td>
+<td>-</td>
+<td><code>200</code> · 스키마 미정의</td>
+<td>없음</td>
+<td><code>422</code> · Validation Error · HTTPValidationError </td>
+</tr>
+<tr>
+<td> List Tag Categories</td>
+<td style="text-align:center">GET</td>
+<td><code>/api/v1/tag-categories</code></td>
+<td style="text-align:center">-</td>
+<td>없음</td>
+<td>-</td>
+<td style="text-align:center">-</td>
+<td>-</td>
+<td><code>200</code> · 스키마 미정의</td>
+<td>없음</td>
+<td>- </td>
+</tr>
+<tr>
+<td> List Restaurant Tags By Category</td>
+<td style="text-align:center">GET</td>
+<td><code>/api/v1/restaurant-tags/{category_id}</code></td>
+<td style="text-align:center">Path</td>
+<td><code>category_id</code></td>
+<td>uuid</td>
+<td style="text-align:center">O</td>
+<td>-</td>
+<td><code>200</code> · 스키마 미정의</td>
+<td>없음</td>
+<td><code>422</code> · Validation Error · HTTPValidationError </td>
+</tr>
+<tr>
+<td> List Restaurant Tags</td>
+<td style="text-align:center">GET</td>
+<td><code>/api/v1/restaurant-tags</code></td>
+<td style="text-align:center">-</td>
+<td>없음</td>
+<td>-</td>
+<td style="text-align:center">-</td>
+<td>-</td>
+<td><code>200</code> · 스키마 미정의</td>
+<td>없음</td>
+<td>- </td>
+</tr>
+</tbody></table></div>
+<p><strong>기타 설명</strong></p>
+<ul>
+<li><code>GET /api/v1/restaurant-categories</code>: 음식 카테고리 목록을 반환한다.</li>
+<li><code>GET /api/v1/restaurants</code>: 식당 목록을 페이지 단위로 반환한다.</li>
+<li><code>GET /api/v1/restaurants/search</code>: 사용자가 선택한 조건과 가장 많이 일치하는 식당을 조회한다.  모든 조건을 만족할 필요는 없다. 음식문화권과 태그가 일치할 때마다 1점을 부여하고 점수가 높은 식당부터 반환한다.</li>
+<li><code>GET /api/v1/restaurants/{restaurant_id}</code>: 식당 한 곳의 상세·메뉴·태그를 반환한다.</li>
+<li><code>GET /api/v1/tag-categories</code>: 가격대·메뉴 특성 등 태그 분류 목록을 반환한다.</li>
+<li><code>GET /api/v1/restaurant-tags/{category_id}</code>: 선택한 분류에 속한 태그를 반환한다.</li>
+<li><code>GET /api/v1/restaurant-tags</code>: 전체 식당 태그를 반환한다.</li>
+</ul>
+</div>
+    </section><hr class="rule"><section class="doc-section" id="recommendations">
+      <div class="sec-head"><span class="sec-num">6</span><h2>Recommendations</h2></div>
+      <div class="section-body"><div class="table-wrap"><table class="def-table api-table">
+<thead>
+<tr>
+<th>기능</th>
+<th style="text-align:center">Method</th>
+<th>API</th>
+<th style="text-align:center">요청 위치</th>
+<th>요청 항목</th>
+<th>타입</th>
+<th style="text-align:center">필수</th>
+<th>제약</th>
+<th>Response</th>
+<th>인증</th>
+<th>예외처리</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Create Recommendation Feedback</td>
+<td style="text-align:center"><span class="method method-post">POST</span></td>
+<td><code>/api/v1/recommendations/{recommendation_id}/feedback</code></td>
+<td style="text-align:center">Path</td>
+<td><code>recommendation_id</code></td>
+<td>uuid</td>
+<td style="text-align:center"><span class="yes">O</span></td>
+<td>-</td>
+<td><code>200</code> · 스키마 미정의</td>
+<td>HTTPBearer</td>
+<td><code>422</code> · Validation Error · HTTPValidationError</td>
+</tr>
+<tr>
+<td>↳</td>
+<td style="text-align:center"></td>
+<td></td>
+<td style="text-align:center">Body</td>
+<td><code>FeedbackCreateRequest</code></td>
+<td>Pydantic Model</td>
+<td style="text-align:center"><span class="yes">O</span></td>
+<td>-</td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+</tbody>
+</table></div>
+<p><strong>기타 설명</strong></p>
+<ul>
+<li><code>POST /api/v1/recommendations/{recommendation_id}/feedback</code>: 추천 평가를 저장하거나, 이미 있으면 값을 바꾼다.</li>
+</ul>
+</div>
+    </section><hr class="rule"><section class="doc-section" id="auth">
+      <div class="sec-head"><span class="sec-num">7</span><h2>Auth</h2></div>
+      <div class="section-body"><div class="table-wrap"><table class="def-table api-table">
+<thead>
+<tr>
+<th>기능</th>
+<th style="text-align:center">Method</th>
+<th>API</th>
+<th style="text-align:center">요청 위치</th>
+<th>요청 항목</th>
+<th>타입</th>
+<th style="text-align:center">필수</th>
+<th>제약</th>
+<th>Response</th>
+<th>인증</th>
+<th>예외처리</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Create User</td>
+<td style="text-align:center"><span class="method method-post">POST</span></td>
+<td><code>/api/v1/auth/signups</code></td>
+<td style="text-align:center">Body</td>
+<td><code>SignUpRequest</code></td>
+<td>Pydantic Model</td>
+<td style="text-align:center"><span class="yes">O</span></td>
+<td>-</td>
+<td><code>201</code> · SuccessResponse_SignUpResponse_</td>
+<td>없음</td>
+<td><code>422</code> · Validation Error · HTTPValidationError</td>
+</tr>
+<tr>
+<td>Login</td>
+<td style="text-align:center"><span class="method method-post">POST</span></td>
+<td><code>/api/v1/auth/login</code></td>
+<td style="text-align:center">Body</td>
+<td><code>LoginRequest</code></td>
+<td>Pydantic Model</td>
+<td style="text-align:center"><span class="yes">O</span></td>
+<td>-</td>
+<td><code>200</code> · 스키마 미정의</td>
+<td>없음</td>
+<td><code>422</code> · Validation Error · HTTPValidationError</td>
+</tr>
+<tr>
+<td>Change Password</td>
+<td style="text-align:center"><span class="method method-patch">PATCH</span></td>
+<td><code>/api/v1/auth/password</code></td>
+<td style="text-align:center">Body</td>
+<td><code>PasswordChangeRequest</code></td>
+<td>Pydantic Model</td>
+<td style="text-align:center"><span class="yes">O</span></td>
+<td>-</td>
+<td><code>200</code> · 스키마 미정의</td>
+<td>HTTPBearer</td>
+<td><code>422</code> · Validation Error · HTTPValidationError</td>
+</tr>
+</tbody>
+</table></div>
+<p><strong>기타 설명</strong></p>
+<ul>
+<li><code>POST /api/v1/auth/signups</code>: 이메일 회원을 만들고 profiles·user_consents를 함께 저장한다.</li>
+<li><code>POST /api/v1/auth/login</code>: 이메일 로그인. 관리자(profile_type=0)와 일반 사용자를 구분한다.</li>
+<li><code>PATCH /api/v1/auth/password</code>: 현재 비밀번호를 확인한 뒤 Auth 비밀번호를 바꾸고 세션을 종료한다.</li>
+</ul>
+</div>
+    </section><hr class="rule"><section class="doc-section" id="users">
+      <div class="sec-head"><span class="sec-num">8</span><h2>Users</h2></div>
+      <div class="section-body"><div class="table-wrap"><table class="def-table api-table">
+<thead>
+<tr>
+<th>기능</th>
+<th style="text-align:center">Method</th>
+<th>API</th>
+<th style="text-align:center">요청 위치</th>
+<th>요청 항목</th>
+<th>타입</th>
+<th style="text-align:center">필수</th>
+<th>제약</th>
+<th>Response</th>
+<th>인증</th>
+<th>예외처리</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Get My Profile</td>
+<td style="text-align:center"><span class="method method-get">GET</span></td>
+<td><code>/api/v1/users/me</code></td>
+<td style="text-align:center">-</td>
+<td>없음</td>
+<td>-</td>
+<td style="text-align:center">-</td>
+<td>-</td>
+<td><code>200</code> · 스키마 미정의</td>
+<td>HTTPBearer</td>
+<td>-</td>
+</tr>
+<tr>
+<td>Update My Profile</td>
+<td style="text-align:center"><span class="method method-patch">PATCH</span></td>
+<td><code>/api/v1/users/me</code></td>
+<td style="text-align:center">Body</td>
+<td><code>NicknameUpdateRequest</code></td>
+<td>Pydantic Model</td>
+<td style="text-align:center"><span class="yes">O</span></td>
+<td>-</td>
+<td><code>200</code> · 스키마 미정의</td>
+<td>HTTPBearer</td>
+<td><code>422</code> · Validation Error · HTTPValidationError</td>
+</tr>
+<tr>
+<td>Get My Tags</td>
+<td style="text-align:center"><span class="method method-get">GET</span></td>
+<td><code>/api/v1/users/me/tags</code></td>
+<td style="text-align:center">-</td>
+<td>없음</td>
+<td>-</td>
+<td style="text-align:center">-</td>
+<td>-</td>
+<td><code>200</code> · 스키마 미정의</td>
+<td>HTTPBearer</td>
+<td>-</td>
+</tr>
+<tr>
+<td>Get My Likes</td>
+<td style="text-align:center"><span class="method method-get">GET</span></td>
+<td><code>/api/v1/users/me/likes</code></td>
+<td style="text-align:center">-</td>
+<td>없음</td>
+<td>-</td>
+<td style="text-align:center">-</td>
+<td>-</td>
+<td><code>200</code> · 스키마 미정의</td>
+<td>HTTPBearer</td>
+<td>-</td>
+</tr>
+<tr>
+<td>Get My Categories</td>
+<td style="text-align:center"><span class="method method-get">GET</span></td>
+<td><code>/api/v1/users/me/categories</code></td>
+<td style="text-align:center">-</td>
+<td>없음</td>
+<td>-</td>
+<td style="text-align:center">-</td>
+<td>-</td>
+<td><code>200</code> · 스키마 미정의</td>
+<td>HTTPBearer</td>
+<td>-</td>
+</tr>
+</tbody>
+</table></div>
+<p><strong>기타 설명</strong></p>
+<ul>
+<li><code>GET /api/v1/users/me</code>: 로그인한 사용자의 이메일과 닉네임을 반환한다.</li>
+<li><code>PATCH /api/v1/users/me</code>: 닉네임을 수정한다. 다른 사용자와 중복이면 409.</li>
+<li><code>GET /api/v1/users/me/tags</code>: 저장된 추천 조건에 포함된 태그 사용 횟수 상위 5개를 반환한다.</li>
+<li><code>GET /api/v1/users/me/likes</code>: feedback_value=3 평가를 최신순으로 서로 다른 식당 3개를 반환한다.</li>
+<li><code>GET /api/v1/users/me/categories</code>: 긍정 평가 식당을 음식 카테고리별로 나눈 비율을 반환한다.</li>
+</ul>
+</div>
+    </section><hr class="rule"><section class="doc-section" id="conversations">
+      <div class="sec-head"><span class="sec-num">9</span><h2>Conversations &amp; Chat</h2></div>
+      <div class="section-body"><div class="table-wrap"><table class="def-table api-table">
+<thead>
+<tr>
+<th>기능</th>
+<th style="text-align:center">Method</th>
+<th>API</th>
+<th style="text-align:center">요청 위치</th>
+<th>요청 항목</th>
+<th>타입</th>
+<th style="text-align:center">필수</th>
+<th>제약</th>
+<th>Response</th>
+<th>인증</th>
+<th>예외처리</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Create Conversation</td>
+<td style="text-align:center"><span class="method method-post">POST</span></td>
+<td><code>/api/v1/conversations/</code></td>
+<td style="text-align:center">Body</td>
+<td><code>MyConversationCreate</code></td>
+<td>Pydantic Model</td>
+<td style="text-align:center"><span class="yes">O</span></td>
+<td>-</td>
+<td><code>201</code> · 스키마 미정의</td>
+<td>HTTPBearer</td>
+<td><code>422</code> · Validation Error · HTTPValidationError</td>
+</tr>
+<tr>
+<td>Create Conversation</td>
+<td style="text-align:center"><span class="method method-post">POST</span></td>
+<td><code>/api/v1/conversations</code></td>
+<td style="text-align:center">Body</td>
+<td><code>MyConversationCreate</code></td>
+<td>Pydantic Model</td>
+<td style="text-align:center"><span class="yes">O</span></td>
+<td>-</td>
+<td><code>201</code> · 스키마 미정의</td>
+<td>HTTPBearer</td>
+<td><code>422</code> · Validation Error · HTTPValidationError</td>
+</tr>
+<tr>
+<td>Post Message</td>
+<td style="text-align:center"><span class="method method-post">POST</span></td>
+<td><code>/api/v1/conversations/{conversation_id}/messages</code></td>
+<td style="text-align:center">Path</td>
+<td><code>conversation_id</code></td>
+<td>uuid</td>
+<td style="text-align:center"><span class="yes">O</span></td>
+<td>-</td>
+<td><code>200</code> · MessageOut</td>
+<td>HTTPBearer</td>
+<td><code>422</code> · Validation Error · HTTPValidationError</td>
+</tr>
+<tr>
+<td>↳</td>
+<td style="text-align:center"></td>
+<td></td>
+<td style="text-align:center">Body</td>
+<td><code>MessageCreate</code></td>
+<td>Pydantic Model</td>
+<td style="text-align:center"><span class="yes">O</span></td>
+<td>-</td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>Get Messages</td>
+<td style="text-align:center"><span class="method method-get">GET</span></td>
+<td><code>/api/v1/conversations/{conversation_id}/messages</code></td>
+<td style="text-align:center">Path</td>
+<td><code>conversation_id</code></td>
+<td>uuid</td>
+<td style="text-align:center"><span class="yes">O</span></td>
+<td>-</td>
+<td><code>200</code> · array[MessageOut]</td>
+<td>HTTPBearer</td>
+<td><code>422</code> · Validation Error · HTTPValidationError</td>
+</tr>
+<tr>
+<td>Save Feedback</td>
+<td style="text-align:center"><span class="method method-post">POST</span></td>
+<td><code>/api/v1/conversations/{conversation_id}/feedback</code></td>
+<td style="text-align:center">Path</td>
+<td><code>conversation_id</code></td>
+<td>uuid</td>
+<td style="text-align:center"><span class="yes">O</span></td>
+<td>-</td>
+<td><code>200</code> · 스키마 미정의</td>
+<td>HTTPBearer</td>
+<td><code>422</code> · Validation Error · HTTPValidationError</td>
+</tr>
+<tr>
+<td>↳</td>
+<td style="text-align:center"></td>
+<td></td>
+<td style="text-align:center">Body</td>
+<td><code>FeedbackRequest</code></td>
+<td>Pydantic Model</td>
+<td style="text-align:center"><span class="yes">O</span></td>
+<td>-</td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>Read Feedback</td>
+<td style="text-align:center"><span class="method method-get">GET</span></td>
+<td><code>/api/v1/conversations/{conversation_id}/feedback</code></td>
+<td style="text-align:center">Path</td>
+<td><code>conversation_id</code></td>
+<td>uuid</td>
+<td style="text-align:center"><span class="yes">O</span></td>
+<td>-</td>
+<td><code>200</code> · 스키마 미정의</td>
+<td>HTTPBearer</td>
+<td><code>422</code> · Validation Error · HTTPValidationError</td>
+</tr>
+<tr>
+<td>Usage Logs</td>
+<td style="text-align:center"><span class="method method-get">GET</span></td>
+<td><code>/api/v1/conversations/{conversation_id}/usage-logs</code></td>
+<td style="text-align:center">Path</td>
+<td><code>conversation_id</code></td>
+<td>uuid</td>
+<td style="text-align:center"><span class="yes">O</span></td>
+<td>-</td>
+<td><code>200</code> · 스키마 미정의</td>
+<td>HTTPBearer</td>
+<td><code>422</code> · Validation Error · HTTPValidationError</td>
+</tr>
+<tr>
+<td>Reset Context</td>
+<td style="text-align:center"><span class="method method-post">POST</span></td>
+<td><code>/api/v1/conversations/{conversation_id}/reset-context</code></td>
+<td style="text-align:center">Path</td>
+<td><code>conversation_id</code></td>
+<td>uuid</td>
+<td style="text-align:center"><span class="yes">O</span></td>
+<td>-</td>
+<td><code>200</code> · MessageOut</td>
+<td>HTTPBearer</td>
+<td><code>422</code> · Validation Error · HTTPValidationError</td>
+</tr>
+<tr>
+<td>Regenerate</td>
+<td style="text-align:center"><span class="method method-post">POST</span></td>
+<td><code>/api/v1/conversations/{conversation_id}/regenerate</code></td>
+<td style="text-align:center">Path</td>
+<td><code>conversation_id</code></td>
+<td>uuid</td>
+<td style="text-align:center"><span class="yes">O</span></td>
+<td>-</td>
+<td><code>200</code> · 스키마 미정의</td>
+<td>HTTPBearer</td>
+<td><code>422</code> · Validation Error · HTTPValidationError</td>
+</tr>
+<tr>
+<td>↳</td>
+<td style="text-align:center"></td>
+<td></td>
+<td style="text-align:center">Body</td>
+<td><code>RegenerateRequest</code></td>
+<td>Pydantic Model</td>
+<td style="text-align:center"><span class="yes">O</span></td>
+<td>-</td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>Chat</td>
+<td style="text-align:center"><span class="method method-post">POST</span></td>
+<td><code>/api/v1/conversations/{conversation_id}/chat</code></td>
+<td style="text-align:center">Path</td>
+<td><code>conversation_id</code></td>
+<td>uuid</td>
+<td style="text-align:center"><span class="yes">O</span></td>
+<td>-</td>
+<td><code>200</code> · 스키마 미정의</td>
+<td>HTTPBearer</td>
+<td><code>422</code> · Validation Error · HTTPValidationError</td>
+</tr>
+<tr>
+<td>↳</td>
+<td style="text-align:center"></td>
+<td></td>
+<td style="text-align:center">Body</td>
+<td><code>ChatRequest</code></td>
+<td>Pydantic Model</td>
+<td style="text-align:center"><span class="yes">O</span></td>
+<td>-</td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>Chat Options</td>
+<td style="text-align:center"><span class="method method-get">GET</span></td>
+<td><code>/api/v1/chat/options</code></td>
+<td style="text-align:center">-</td>
+<td>없음</td>
+<td>-</td>
+<td style="text-align:center">-</td>
+<td>-</td>
+<td><code>200</code> · 스키마 미정의</td>
+<td>없음</td>
+<td>-</td>
+</tr>
+</tbody>
+</table></div>
+<p><strong>기타 설명</strong></p>
+<ul>
+<li><code>POST /api/v1/conversations/</code>: 로그인한 사용자 명의로 새 대화를 만든다.</li>
+<li><code>POST /api/v1/conversations</code>: 로그인한 사용자 명의로 새 대화를 만든다.</li>
+<li><code>POST /api/v1/conversations/{conversation_id}/messages</code>: 내 대화에만 메시지를 추가한다.</li>
+<li><code>GET /api/v1/conversations/{conversation_id}/messages</code>: 내 대화의 메시지 목록을 반환한다.</li>
+<li><code>POST /api/v1/conversations/{conversation_id}/feedback</code>: AI 추천 답변에 대한 피드백을 저장한다.</li>
+<li><code>GET /api/v1/conversations/{conversation_id}/feedback</code>: 현재 대화방의 피드백 상태를 반환한다.</li>
+<li><code>GET /api/v1/conversations/{conversation_id}/usage-logs</code>: 대화에서 Gemini를 호출한 사용량 로그를 반환한다.</li>
+<li><code>POST /api/v1/conversations/{conversation_id}/reset-context</code>: 이전 음식 추천 맥락을 초기화한다.  DB의 기존 메시지를 삭제하지 않고 이 지점 이후의 메시지만 Gemini에게 전달한다.</li>
+<li><code>POST /api/v1/conversations/{conversation_id}/regenerate</code>: 마지막 AI 추천 답변을 삭제하고 같은 조건으로 다음 식당을 고른다.</li>
+<li><code>POST /api/v1/conversations/{conversation_id}/chat</code>: 사용자 질문을 저장하고 DB 식당 한 곳을 추천한다.</li>
+<li><code>GET /api/v1/chat/options</code>: 음식점 추천 화면에서 사용할 선택지를 반환한다.  restaurant_categories     한식 / 중식 / 일식 / 양식 / 기타  menu_types     매운거 / 든든한거 / 국물여부  price_levels     인당가격_하 / 인당가격_중 / 인당가격_상</li>
+</ul>
+</div>
+    </section><hr class="rule"><section class="doc-section" id="admin">
+      <div class="sec-head"><span class="sec-num">10</span><h2>Admin</h2></div>
+      <div class="section-body"><div class="table-wrap"><table class="def-table api-table">
+<thead><tr>
+<th> 기능</th>
+<th style="text-align:center">Method</th>
+<th>API</th>
+<th style="text-align:center">요청 위치</th>
+<th>요청 항목</th>
+<th>타입</th>
+<th style="text-align:center">필수</th>
+<th>제약</th>
+<th>Response</th>
+<th>인증</th>
+<th>예외처리 </th>
+</tr></thead>
+<tbody>
+<tr>
+<td> Delete Admin Restaurant</td>
+<td style="text-align:center">DELETE</td>
+<td><code>/api/v1/admin/restaurants/{restaurant_id}</code></td>
+<td style="text-align:center">Path</td>
+<td><code>restaurant_id</code></td>
+<td>uuid</td>
+<td style="text-align:center">O</td>
+<td>-</td>
+<td><code>200</code> · 스키마 미정의</td>
+<td>Authorization Header</td>
+<td><code>422</code> · Validation Error · HTTPValidationError </td>
+</tr>
+<tr>
+<td> ↳</td>
+<td style="text-align:center"></td>
+<td></td>
+<td style="text-align:center">Header</td>
+<td><code>authorization</code></td>
+<td>string | null</td>
+<td style="text-align:center">X</td>
+<td>-</td>
+<td></td>
+<td></td>
+<td> </td>
+</tr>
+<tr>
+<td> List Admin Feedback</td>
+<td style="text-align:center">GET</td>
+<td><code>/api/v1/admin/feedback</code></td>
+<td style="text-align:center">Query</td>
+<td><code>page</code></td>
+<td>integer</td>
+<td style="text-align:center">X</td>
+<td>최소 1, 기본 <code>1</code></td>
+<td><code>200</code> · 스키마 미정의</td>
+<td>Authorization Header</td>
+<td><code>422</code> · Validation Error · HTTPValidationError </td>
+</tr>
+<tr>
+<td> ↳</td>
+<td style="text-align:center"></td>
+<td></td>
+<td style="text-align:center">Query</td>
+<td><code>page_size</code></td>
+<td>integer</td>
+<td style="text-align:center">X</td>
+<td>최소 1, 최대 100, 기본 <code>20</code></td>
+<td></td>
+<td></td>
+<td> </td>
+</tr>
+<tr>
+<td> ↳</td>
+<td style="text-align:center"></td>
+<td></td>
+<td style="text-align:center">Header</td>
+<td><code>authorization</code></td>
+<td>string | null</td>
+<td style="text-align:center">X</td>
+<td>-</td>
+<td></td>
+<td></td>
+<td> </td>
+</tr>
+<tr>
+<td> List Search Stats</td>
+<td style="text-align:center">GET</td>
+<td><code>/api/v1/admin/search-stats</code></td>
+<td style="text-align:center">Header</td>
+<td><code>authorization</code></td>
+<td>string | null</td>
+<td style="text-align:center">X</td>
+<td>-</td>
+<td><code>200</code> · 스키마 미정의</td>
+<td>Authorization Header</td>
+<td><code>422</code> · Validation Error · HTTPValidationError </td>
+</tr>
+</tbody></table></div>
+<p><strong>기타 설명</strong></p>
+<ul>
+<li><code>DELETE /api/v1/admin/restaurants/{restaurant_id}</code>: 관리자가 식당을 비활성화한다. 행은 삭제하지 않는다.</li>
+<li><code>GET /api/v1/admin/feedback</code>: 관리자 추천 평가 목록과 값별 건수를 반환한다.</li>
+<li><code>GET /api/v1/admin/search-stats</code>: 관리자 검색정보 차트용 집계를 반환한다.</li>
+</ul>
+</div>
+    </section><hr class="rule"><section class="doc-section" id="admin-logs">
+      <div class="sec-head"><span class="sec-num">11</span><h2>Admin Log Analysis</h2></div>
+      <div class="section-body"><div class="table-wrap"><table class="def-table api-table">
+<thead><tr>
+<th> 기능</th>
+<th style="text-align:center">Method</th>
+<th>API</th>
+<th style="text-align:center">요청 위치</th>
+<th>요청 항목</th>
+<th>타입</th>
+<th style="text-align:center">필수</th>
+<th>제약</th>
+<th>Response</th>
+<th>인증</th>
+<th>예외처리 </th>
+</tr></thead>
+<tbody>
+<tr>
+<td> List Api Logs</td>
+<td style="text-align:center">GET</td>
+<td><code>/api/v1/admin/api-logs</code></td>
+<td style="text-align:center">Query</td>
+<td><code>period_start</code></td>
+<td>date-time | null</td>
+<td style="text-align:center">X</td>
+<td>-</td>
+<td><code>200</code> · 스키마 미정의</td>
+<td>Authorization Header</td>
+<td><code>422</code> · Validation Error · HTTPValidationError </td>
+</tr>
+<tr>
+<td> ↳</td>
+<td style="text-align:center"></td>
+<td></td>
+<td style="text-align:center">Query</td>
+<td><code>period_end</code></td>
+<td>date-time | null</td>
+<td style="text-align:center">X</td>
+<td>-</td>
+<td></td>
+<td></td>
+<td> </td>
+</tr>
+<tr>
+<td> ↳</td>
+<td style="text-align:center"></td>
+<td></td>
+<td style="text-align:center">Query</td>
+<td><code>endpoint</code></td>
+<td>string | null</td>
+<td style="text-align:center">X</td>
+<td>-</td>
+<td></td>
+<td></td>
+<td> </td>
+</tr>
+<tr>
+<td> ↳</td>
+<td style="text-align:center"></td>
+<td></td>
+<td style="text-align:center">Query</td>
+<td><code>http_method</code></td>
+<td>string | null</td>
+<td style="text-align:center">X</td>
+<td>-</td>
+<td></td>
+<td></td>
+<td> </td>
+</tr>
+<tr>
+<td> ↳</td>
+<td style="text-align:center"></td>
+<td></td>
+<td style="text-align:center">Query</td>
+<td><code>status_code</code></td>
+<td>integer | null</td>
+<td style="text-align:center">X</td>
+<td>-</td>
+<td></td>
+<td></td>
+<td> </td>
+</tr>
+<tr>
+<td> ↳</td>
+<td style="text-align:center"></td>
+<td></td>
+<td style="text-align:center">Query</td>
+<td><code>status_class</code></td>
+<td>string | null</td>
+<td style="text-align:center">X</td>
+<td>-</td>
+<td></td>
+<td></td>
+<td> </td>
+</tr>
+<tr>
+<td> ↳</td>
+<td style="text-align:center"></td>
+<td></td>
+<td style="text-align:center">Query</td>
+<td><code>error_only</code></td>
+<td>boolean</td>
+<td style="text-align:center">X</td>
+<td>기본 <code>false</code></td>
+<td></td>
+<td></td>
+<td> </td>
+</tr>
+<tr>
+<td> ↳</td>
+<td style="text-align:center"></td>
+<td></td>
+<td style="text-align:center">Query</td>
+<td><code>cleaning_run_id</code></td>
+<td>uuid | null</td>
+<td style="text-align:center">X</td>
+<td>-</td>
+<td></td>
+<td></td>
+<td> </td>
+</tr>
+<tr>
+<td> ↳</td>
+<td style="text-align:center"></td>
+<td></td>
+<td style="text-align:center">Query</td>
+<td><code>page</code></td>
+<td>integer</td>
+<td style="text-align:center">X</td>
+<td>최소 1, 기본 <code>1</code></td>
+<td></td>
+<td></td>
+<td> </td>
+</tr>
+<tr>
+<td> ↳</td>
+<td style="text-align:center"></td>
+<td></td>
+<td style="text-align:center">Query</td>
+<td><code>page_size</code></td>
+<td>integer</td>
+<td style="text-align:center">X</td>
+<td>최소 1, 최대 100, 기본 <code>20</code></td>
+<td></td>
+<td></td>
+<td> </td>
+</tr>
+<tr>
+<td> ↳</td>
+<td style="text-align:center"></td>
+<td></td>
+<td style="text-align:center">Header</td>
+<td><code>authorization</code></td>
+<td>string | null</td>
+<td style="text-align:center">X</td>
+<td>-</td>
+<td></td>
+<td></td>
+<td> </td>
+</tr>
+<tr>
+<td> Get Api Log</td>
+<td style="text-align:center">GET</td>
+<td><code>/api/v1/admin/api-logs/{api_log_id}</code></td>
+<td style="text-align:center">Path</td>
+<td><code>api_log_id</code></td>
+<td>uuid</td>
+<td style="text-align:center">O</td>
+<td>-</td>
+<td><code>200</code> · 스키마 미정의</td>
+<td>Authorization Header</td>
+<td><code>422</code> · Validation Error · HTTPValidationError </td>
+</tr>
+<tr>
+<td> ↳</td>
+<td style="text-align:center"></td>
+<td></td>
+<td style="text-align:center">Header</td>
+<td><code>authorization</code></td>
+<td>string | null</td>
+<td style="text-align:center">X</td>
+<td>-</td>
+<td></td>
+<td></td>
+<td> </td>
+</tr>
+<tr>
+<td> Create Admin Cleaning Run</td>
+<td style="text-align:center">POST</td>
+<td><code>/api/v1/admin/log-cleaning-runs</code></td>
+<td style="text-align:center">Header</td>
+<td><code>authorization</code></td>
+<td>string | null</td>
+<td style="text-align:center">X</td>
+<td>-</td>
+<td><code>201</code> · 스키마 미정의</td>
+<td>Authorization Header</td>
+<td><code>422</code> · Validation Error · HTTPValidationError </td>
+</tr>
+<tr>
+<td> ↳</td>
+<td style="text-align:center"></td>
+<td></td>
+<td style="text-align:center">Body</td>
+<td><code>CleaningRunRequest</code></td>
+<td>Pydantic Model</td>
+<td style="text-align:center">O</td>
+<td>-</td>
+<td></td>
+<td></td>
+<td> </td>
+</tr>
+<tr>
+<td> Get Admin Cleaning Run</td>
+<td style="text-align:center">GET</td>
+<td><code>/api/v1/admin/log-cleaning-runs/{run_id}</code></td>
+<td style="text-align:center">Path</td>
+<td><code>run_id</code></td>
+<td>uuid</td>
+<td style="text-align:center">O</td>
+<td>-</td>
+<td><code>200</code> · 스키마 미정의</td>
+<td>Authorization Header</td>
+<td><code>422</code> · Validation Error · HTTPValidationError </td>
+</tr>
+<tr>
+<td> ↳</td>
+<td style="text-align:center"></td>
+<td></td>
+<td style="text-align:center">Header</td>
+<td><code>authorization</code></td>
+<td>string | null</td>
+<td style="text-align:center">X</td>
+<td>-</td>
+<td></td>
+<td></td>
+<td> </td>
+</tr>
+<tr>
+<td> Get Usage Statistics</td>
+<td style="text-align:center">GET</td>
+<td><code>/api/v1/admin/api-statistics/usage</code></td>
+<td style="text-align:center">Query</td>
+<td><code>period_start</code></td>
+<td>date-time | null</td>
+<td style="text-align:center">X</td>
+<td>-</td>
+<td><code>200</code> · 스키마 미정의</td>
+<td>Authorization Header</td>
+<td><code>422</code> · Validation Error · HTTPValidationError </td>
+</tr>
+<tr>
+<td> ↳</td>
+<td style="text-align:center"></td>
+<td></td>
+<td style="text-align:center">Query</td>
+<td><code>period_end</code></td>
+<td>date-time | null</td>
+<td style="text-align:center">X</td>
+<td>-</td>
+<td></td>
+<td></td>
+<td> </td>
+</tr>
+<tr>
+<td> ↳</td>
+<td style="text-align:center"></td>
+<td></td>
+<td style="text-align:center">Query</td>
+<td><code>endpoint</code></td>
+<td>string | null</td>
+<td style="text-align:center">X</td>
+<td>-</td>
+<td></td>
+<td></td>
+<td> </td>
+</tr>
+<tr>
+<td> ↳</td>
+<td style="text-align:center"></td>
+<td></td>
+<td style="text-align:center">Query</td>
+<td><code>http_method</code></td>
+<td>string | null</td>
+<td style="text-align:center">X</td>
+<td>-</td>
+<td></td>
+<td></td>
+<td> </td>
+</tr>
+<tr>
+<td> ↳</td>
+<td style="text-align:center"></td>
+<td></td>
+<td style="text-align:center">Query</td>
+<td><code>status_code</code></td>
+<td>integer | null</td>
+<td style="text-align:center">X</td>
+<td>-</td>
+<td></td>
+<td></td>
+<td> </td>
+</tr>
+<tr>
+<td> ↳</td>
+<td style="text-align:center"></td>
+<td></td>
+<td style="text-align:center">Query</td>
+<td><code>status_class</code></td>
+<td>string | null</td>
+<td style="text-align:center">X</td>
+<td>-</td>
+<td></td>
+<td></td>
+<td> </td>
+</tr>
+<tr>
+<td> ↳</td>
+<td style="text-align:center"></td>
+<td></td>
+<td style="text-align:center">Query</td>
+<td><code>error_only</code></td>
+<td>boolean</td>
+<td style="text-align:center">X</td>
+<td>기본 <code>false</code></td>
+<td></td>
+<td></td>
+<td> </td>
+</tr>
+<tr>
+<td> ↳</td>
+<td style="text-align:center"></td>
+<td></td>
+<td style="text-align:center">Query</td>
+<td><code>cleaning_run_id</code></td>
+<td>uuid | null</td>
+<td style="text-align:center">X</td>
+<td>-</td>
+<td></td>
+<td></td>
+<td> </td>
+</tr>
+<tr>
+<td> ↳</td>
+<td style="text-align:center"></td>
+<td></td>
+<td style="text-align:center">Header</td>
+<td><code>authorization</code></td>
+<td>string | null</td>
+<td style="text-align:center">X</td>
+<td>-</td>
+<td></td>
+<td></td>
+<td> </td>
+</tr>
+<tr>
+<td> Get Latency Statistics</td>
+<td style="text-align:center">GET</td>
+<td><code>/api/v1/admin/api-statistics/latency</code></td>
+<td style="text-align:center">Query</td>
+<td><code>period_start</code></td>
+<td>date-time | null</td>
+<td style="text-align:center">X</td>
+<td>-</td>
+<td><code>200</code> · 스키마 미정의</td>
+<td>Authorization Header</td>
+<td><code>422</code> · Validation Error · HTTPValidationError </td>
+</tr>
+<tr>
+<td> ↳</td>
+<td style="text-align:center"></td>
+<td></td>
+<td style="text-align:center">Query</td>
+<td><code>period_end</code></td>
+<td>date-time | null</td>
+<td style="text-align:center">X</td>
+<td>-</td>
+<td></td>
+<td></td>
+<td> </td>
+</tr>
+<tr>
+<td> ↳</td>
+<td style="text-align:center"></td>
+<td></td>
+<td style="text-align:center">Query</td>
+<td><code>endpoint</code></td>
+<td>string | null</td>
+<td style="text-align:center">X</td>
+<td>-</td>
+<td></td>
+<td></td>
+<td> </td>
+</tr>
+<tr>
+<td> ↳</td>
+<td style="text-align:center"></td>
+<td></td>
+<td style="text-align:center">Query</td>
+<td><code>http_method</code></td>
+<td>string | null</td>
+<td style="text-align:center">X</td>
+<td>-</td>
+<td></td>
+<td></td>
+<td> </td>
+</tr>
+<tr>
+<td> ↳</td>
+<td style="text-align:center"></td>
+<td></td>
+<td style="text-align:center">Query</td>
+<td><code>status_code</code></td>
+<td>integer | null</td>
+<td style="text-align:center">X</td>
+<td>-</td>
+<td></td>
+<td></td>
+<td> </td>
+</tr>
+<tr>
+<td> ↳</td>
+<td style="text-align:center"></td>
+<td></td>
+<td style="text-align:center">Query</td>
+<td><code>status_class</code></td>
+<td>string | null</td>
+<td style="text-align:center">X</td>
+<td>-</td>
+<td></td>
+<td></td>
+<td> </td>
+</tr>
+<tr>
+<td> ↳</td>
+<td style="text-align:center"></td>
+<td></td>
+<td style="text-align:center">Query</td>
+<td><code>error_only</code></td>
+<td>boolean</td>
+<td style="text-align:center">X</td>
+<td>기본 <code>false</code></td>
+<td></td>
+<td></td>
+<td> </td>
+</tr>
+<tr>
+<td> ↳</td>
+<td style="text-align:center"></td>
+<td></td>
+<td style="text-align:center">Query</td>
+<td><code>cleaning_run_id</code></td>
+<td>uuid | null</td>
+<td style="text-align:center">X</td>
+<td>-</td>
+<td></td>
+<td></td>
+<td> </td>
+</tr>
+<tr>
+<td> ↳</td>
+<td style="text-align:center"></td>
+<td></td>
+<td style="text-align:center">Header</td>
+<td><code>authorization</code></td>
+<td>string | null</td>
+<td style="text-align:center">X</td>
+<td>-</td>
+<td></td>
+<td></td>
+<td> </td>
+</tr>
+<tr>
+<td> Get Error Statistics</td>
+<td style="text-align:center">GET</td>
+<td><code>/api/v1/admin/api-statistics/errors</code></td>
+<td style="text-align:center">Query</td>
+<td><code>period_start</code></td>
+<td>date-time | null</td>
+<td style="text-align:center">X</td>
+<td>-</td>
+<td><code>200</code> · 스키마 미정의</td>
+<td>Authorization Header</td>
+<td><code>422</code> · Validation Error · HTTPValidationError </td>
+</tr>
+<tr>
+<td> ↳</td>
+<td style="text-align:center"></td>
+<td></td>
+<td style="text-align:center">Query</td>
+<td><code>period_end</code></td>
+<td>date-time | null</td>
+<td style="text-align:center">X</td>
+<td>-</td>
+<td></td>
+<td></td>
+<td> </td>
+</tr>
+<tr>
+<td> ↳</td>
+<td style="text-align:center"></td>
+<td></td>
+<td style="text-align:center">Query</td>
+<td><code>endpoint</code></td>
+<td>string | null</td>
+<td style="text-align:center">X</td>
+<td>-</td>
+<td></td>
+<td></td>
+<td> </td>
+</tr>
+<tr>
+<td> ↳</td>
+<td style="text-align:center"></td>
+<td></td>
+<td style="text-align:center">Query</td>
+<td><code>http_method</code></td>
+<td>string | null</td>
+<td style="text-align:center">X</td>
+<td>-</td>
+<td></td>
+<td></td>
+<td> </td>
+</tr>
+<tr>
+<td> ↳</td>
+<td style="text-align:center"></td>
+<td></td>
+<td style="text-align:center">Query</td>
+<td><code>status_code</code></td>
+<td>integer | null</td>
+<td style="text-align:center">X</td>
+<td>-</td>
+<td></td>
+<td></td>
+<td> </td>
+</tr>
+<tr>
+<td> ↳</td>
+<td style="text-align:center"></td>
+<td></td>
+<td style="text-align:center">Query</td>
+<td><code>status_class</code></td>
+<td>string | null</td>
+<td style="text-align:center">X</td>
+<td>-</td>
+<td></td>
+<td></td>
+<td> </td>
+</tr>
+<tr>
+<td> ↳</td>
+<td style="text-align:center"></td>
+<td></td>
+<td style="text-align:center">Query</td>
+<td><code>error_only</code></td>
+<td>boolean</td>
+<td style="text-align:center">X</td>
+<td>기본 <code>false</code></td>
+<td></td>
+<td></td>
+<td> </td>
+</tr>
+<tr>
+<td> ↳</td>
+<td style="text-align:center"></td>
+<td></td>
+<td style="text-align:center">Query</td>
+<td><code>cleaning_run_id</code></td>
+<td>uuid | null</td>
+<td style="text-align:center">X</td>
+<td>-</td>
+<td></td>
+<td></td>
+<td> </td>
+</tr>
+<tr>
+<td> ↳</td>
+<td style="text-align:center"></td>
+<td></td>
+<td style="text-align:center">Header</td>
+<td><code>authorization</code></td>
+<td>string | null</td>
+<td style="text-align:center">X</td>
+<td>-</td>
+<td></td>
+<td></td>
+<td> </td>
+</tr>
+<tr>
+<td> Create Admin Log Summary</td>
+<td style="text-align:center">POST</td>
+<td><code>/api/v1/admin/log-summaries</code></td>
+<td style="text-align:center">Header</td>
+<td><code>authorization</code></td>
+<td>string | null</td>
+<td style="text-align:center">X</td>
+<td>-</td>
+<td><code>201</code> · 스키마 미정의</td>
+<td>Authorization Header</td>
+<td><code>422</code> · Validation Error · HTTPValidationError </td>
+</tr>
+<tr>
+<td> ↳</td>
+<td style="text-align:center"></td>
+<td></td>
+<td style="text-align:center">Body</td>
+<td><code>LogSummaryRequest</code></td>
+<td>Pydantic Model</td>
+<td style="text-align:center">O</td>
+<td>-</td>
+<td></td>
+<td></td>
+<td> </td>
+</tr>
+<tr>
+<td> Get Admin Log Summary</td>
+<td style="text-align:center">GET</td>
+<td><code>/api/v1/admin/log-summaries/{summary_id}</code></td>
+<td style="text-align:center">Path</td>
+<td><code>summary_id</code></td>
+<td>uuid</td>
+<td style="text-align:center">O</td>
+<td>-</td>
+<td><code>200</code> · 스키마 미정의</td>
+<td>Authorization Header</td>
+<td><code>422</code> · Validation Error · HTTPValidationError </td>
+</tr>
+<tr>
+<td> ↳</td>
+<td style="text-align:center"></td>
+<td></td>
+<td style="text-align:center">Header</td>
+<td><code>authorization</code></td>
+<td>string | null</td>
+<td style="text-align:center">X</td>
+<td>-</td>
+<td></td>
+<td></td>
+<td> </td>
+</tr>
+<tr>
+<td> Create Admin Evaluation Run</td>
+<td style="text-align:center">POST</td>
+<td><code>/api/v1/admin/summary-evaluation-runs</code></td>
+<td style="text-align:center">Header</td>
+<td><code>authorization</code></td>
+<td>string | null</td>
+<td style="text-align:center">X</td>
+<td>-</td>
+<td><code>201</code> · 스키마 미정의</td>
+<td>Authorization Header</td>
+<td><code>422</code> · Validation Error · HTTPValidationError </td>
+</tr>
+<tr>
+<td> ↳</td>
+<td style="text-align:center"></td>
+<td></td>
+<td style="text-align:center">Body</td>
+<td><code>EvaluationRunRequest</code></td>
+<td>Pydantic Model</td>
+<td style="text-align:center">O</td>
+<td>-</td>
+<td></td>
+<td></td>
+<td> </td>
+</tr>
+<tr>
+<td> Get Admin Evaluation Run</td>
+<td style="text-align:center">GET</td>
+<td><code>/api/v1/admin/summary-evaluation-runs/{run_id}</code></td>
+<td style="text-align:center">Path</td>
+<td><code>run_id</code></td>
+<td>uuid</td>
+<td style="text-align:center">O</td>
+<td>-</td>
+<td><code>200</code> · 스키마 미정의</td>
+<td>Authorization Header</td>
+<td><code>422</code> · Validation Error · HTTPValidationError </td>
+</tr>
+<tr>
+<td> ↳</td>
+<td style="text-align:center"></td>
+<td></td>
+<td style="text-align:center">Header</td>
+<td><code>authorization</code></td>
+<td>string | null</td>
+<td style="text-align:center">X</td>
+<td>-</td>
+<td></td>
+<td></td>
+<td> </td>
+</tr>
+<tr>
+<td> Create Admin Improvement Experiment</td>
+<td style="text-align:center">POST</td>
+<td><code>/api/v1/admin/improvement-experiments</code></td>
+<td style="text-align:center">Header</td>
+<td><code>authorization</code></td>
+<td>string | null</td>
+<td style="text-align:center">X</td>
+<td>-</td>
+<td><code>201</code> · 스키마 미정의</td>
+<td>Authorization Header</td>
+<td><code>422</code> · Validation Error · HTTPValidationError </td>
+</tr>
+<tr>
+<td> ↳</td>
+<td style="text-align:center"></td>
+<td></td>
+<td style="text-align:center">Body</td>
+<td><code>ExperimentCreateRequest</code></td>
+<td>Pydantic Model</td>
+<td style="text-align:center">O</td>
+<td>-</td>
+<td></td>
+<td></td>
+<td> </td>
+</tr>
+<tr>
+<td> Get Admin Improvement Experiment</td>
+<td style="text-align:center">GET</td>
+<td><code>/api/v1/admin/improvement-experiments/{experiment_id}</code></td>
+<td style="text-align:center">Path</td>
+<td><code>experiment_id</code></td>
+<td>uuid</td>
+<td style="text-align:center">O</td>
+<td>-</td>
+<td><code>200</code> · 스키마 미정의</td>
+<td>Authorization Header</td>
+<td><code>422</code> · Validation Error · HTTPValidationError </td>
+</tr>
+<tr>
+<td> ↳</td>
+<td style="text-align:center"></td>
+<td></td>
+<td style="text-align:center">Header</td>
+<td><code>authorization</code></td>
+<td>string | null</td>
+<td style="text-align:center">X</td>
+<td>-</td>
+<td></td>
+<td></td>
+<td> </td>
+</tr>
+</tbody></table></div>
+<p><strong>기타 설명</strong></p>
+<ul>
+<li><code>GET /api/v1/admin/api-logs</code>: 원본 API 로그 목록을 기간·필터로 조회한다. 본문은 반환하지 않는다.</li>
+<li><code>GET /api/v1/admin/api-logs/{api_log_id}</code>: 원본 로그 한 건과 정제 포함 여부를 반환한다.</li>
+<li><code>POST /api/v1/admin/log-cleaning-runs</code>: 지정 기간의 원본 로그를 정제한다. 원본은 덮어쓰지 않는다.</li>
+<li><code>GET /api/v1/admin/log-cleaning-runs/{run_id}</code>: 정제 실행 결과를 조회한다.</li>
+<li><code>POST /api/v1/admin/log-summaries</code>: 정제된 로그를 LLM으로 요약하고 근거 로그를 남긴다.</li>
+<li><code>GET /api/v1/admin/log-summaries/{summary_id}</code>: 저장된 로그 요약과 근거를 조회한다.</li>
+<li><code>POST /api/v1/admin/summary-evaluation-runs</code>: 요약 품질평가를 실행한다. 사실성·완전성 점수를 저장한다.</li>
+<li><code>GET /api/v1/admin/summary-evaluation-runs/{run_id}</code>: 품질평가 실행 결과를 조회한다.</li>
+<li><code>POST /api/v1/admin/improvement-experiments</code>: 요약 개선 실험을 등록한다.</li>
+<li><code>GET /api/v1/admin/improvement-experiments/{experiment_id}</code>: 개선 실험과 연결된 평가 실행을 조회한다.</li>
+</ul>
+</div>
+    </section><hr class="rule"><section class="doc-section" id="system">
+      <div class="sec-head"><span class="sec-num">12</span><h2>System</h2></div>
+      <div class="section-body"><div class="table-wrap"><table class="def-table api-table">
+<thead>
+<tr>
+<th>기능</th>
+<th style="text-align:center">Method</th>
+<th>API</th>
+<th style="text-align:center">요청 위치</th>
+<th>요청 항목</th>
+<th>타입</th>
+<th style="text-align:center">필수</th>
+<th>제약</th>
+<th>Response</th>
+<th>인증</th>
+<th>예외처리</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Health</td>
+<td style="text-align:center"><span class="method method-get">GET</span></td>
+<td><code>/health</code></td>
+<td style="text-align:center">-</td>
+<td>없음</td>
+<td>-</td>
+<td style="text-align:center">-</td>
+<td>-</td>
+<td><code>200</code> · 스키마 미정의</td>
+<td>없음</td>
+<td>-</td>
+</tr>
+</tbody>
+</table></div>
+</div>
+    </section><hr class="rule"></main>
+<footer><p><b>PlayEAT API 명세서</b></p><p>최종 OpenAPI 기준 · 수동 Markdown 원문을 HTML 문서 형식으로 변환</p></footer>
+</div></div>
+<script>
+const sidebar=document.getElementById('sidebar');
+const toggle=document.getElementById('sbToggle');
+const backdrop=document.getElementById('sbBackdrop');
+function closeSidebar(){sidebar.classList.remove('open');document.body.classList.remove('sb-open')}
+toggle?.addEventListener('click',()=>{sidebar.classList.toggle('open');document.body.classList.toggle('sb-open')});
+backdrop?.addEventListener('click',closeSidebar);
+document.querySelectorAll('.sidebar a').forEach(a=>a.addEventListener('click',closeSidebar));
+const links=[...document.querySelectorAll('.sb-top')];
+const targets=links.map(a=>document.querySelector(a.getAttribute('href'))).filter(Boolean);
+const obs=new IntersectionObserver(entries=>{entries.forEach(e=>{if(e.isIntersecting){links.forEach(a=>a.classList.toggle('active',a.getAttribute('href')==='#'+e.target.id));}})},{rootMargin:'-15% 0px -75% 0px'});
+targets.forEach(t=>obs.observe(t));
+</script>
+</body></html>
